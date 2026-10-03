@@ -1,5 +1,9 @@
 import type { ConfigContext, ExpoConfig } from "expo/config";
 
+// 스플래시 배경색을 JS 쪽 디자인 토큰과 한 소스로 묶는다.
+// (@/ alias는 Metro 전용이라 설정 파일에서는 상대경로로 가져와야 한다)
+import { Palette } from "./src/constants/palette.ts";
+
 /**
  * 네이티브(android/, ios/) 설정의 유일한 소스 오브 트루스.
  *
@@ -58,8 +62,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     [
       "expo-splash-screen",
       {
-        // TODO(2단계): 디자인 토큰(Palette) 생성 후 토큰 값으로 교체
-        backgroundColor: "#FFFFFF",
+        // 웹 원본의 body 배경(#ffffff)과 맞춘다.
+        backgroundColor: Palette.white,
         // 플러그인은 image를 생략해도 drawable/splashscreen_logo를 참조해서
         // 파일이 없으면 Android 리소스 링크가 실패한다. 실제 로고가 나오기 전까지
         // 투명 placeholder를 둔다.
