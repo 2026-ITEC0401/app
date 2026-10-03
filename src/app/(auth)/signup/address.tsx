@@ -11,12 +11,15 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { getApiErrorMessage } from "@/api/http-error";
 import { CompleteHeader } from "@/components/signup/complete-header";
 import { ThemedText } from "@/components/themed-text";
 import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/ui/text-field";
 import { Palette, Radius, Spacing, Typography } from "@/constants/theme";
-import { MOCK_ADDRESS_RESULTS } from "@/mocks/household";
+import { useAddressSearchMutation } from "@/hooks/use-address-search-mutation";
+import { useUpdateEmergencyAddressMutation } from "@/hooks/use-update-emergency-address-mutation";
+import { useHouseholdId } from "@/stores/session";
 import { type AddressSearchItem } from "@/types/household";
 
 /** 웹 h-15 */
@@ -32,32 +35,55 @@ const TAG_RADIUS = 6;
 
 /**
  * 집 주소 등록 (웹 원본 pages/HouseholdAddressPage.tsx).
- *
- * TODO: API 연동 — GET /households/{id}/address/search, PATCH /households/{id}/emergency-address.
- * 지금은 키워드가 있으면 목 결과 3건, 없으면 "결과 없음" 을 보여준다.
+ * §5.9 도로명주소 검색 → §5.8 긴급 주소 등록 (owner 전용).
  */
 export default function HouseholdAddressScreen() {
   const router = useRouter();
+  const householdId = useHouseholdId();
+  const searchMutation = useAddressSearchMutation();
+  const registerMutation = useUpdateEmergencyAddressMutation();
   const [keyword, setKeyword] = useState("");
   const [results, setResults] = useState<AddressSearchItem[]>([]);
   const [selected, setSelected] = useState<AddressSearchItem | null>(null);
   const [detail, setDetail] = useState("");
   const [searched, setSearched] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
 
-  const handleSearch = () => {
+  const handleSearch = async () => {
     setSelected(null);
     setError(null);
-    setResults(keyword.trim() ? MOCK_ADDRESS_RESULTS : []);
-    setSearched(true);
+    if (!householdId) return;
+    try {
+      const res = await searchMutation.mutateAsync({ householdId, keyword });
+      setResults(res.items);
+      setSearched(true);
+    } catch (e) {
+      setError(getApiErrorMessage(e, "주소를 검색하지 못했어요."));
+      setResults([]);
+      // 검색 실패는 "결과 없음"이 아니므로 1b 대신 에러만 노출
+      setSearched(false);
+    }
   };
 
-  const handleRegister = () => {
-    if (!selected) return;
+  const handleRegister = async () => {
+    if (!selected || !householdId) return;
     setError(null);
-    setLoading(true);
-    router.replace("/");
+    try {
+      await registerMutation.mutateAsync({
+        householdId,
+        body: {
+          postal_code: selected.postal_code,
+          road_address: selected.road_address,
+          detail_address: detail,
+          address_provider: "juso_go_kr",
+          provider_reference: selected.provider_reference,
+          detail_source: "manual",
+        },
+      });
+      router.replace("/");
+    } catch (e) {
+      setError(getApiErrorMessage(e, "주소 등록에 실패했어요."));
+    }
   };
 
   return (
@@ -203,7 +229,8 @@ export default function HouseholdAddressScreen() {
           label="이 주소로 등록"
           variant="dark"
           onPress={handleRegister}
-          disabled={!selected || loading}
+          disabled={!selected}
+          loading={registerMutation.isPending}
         />
       </ScrollView>
     </SafeAreaView>

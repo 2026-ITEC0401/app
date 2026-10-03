@@ -1,15 +1,17 @@
 import { useState } from "react";
 
+import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { Info } from "lucide-react-native";
 import { StyleSheet, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { getApiErrorMessage } from "@/api/http-error";
 import { CompleteHeader } from "@/components/signup/complete-header";
 import { ThemedText } from "@/components/themed-text";
 import { Button } from "@/components/ui/button";
 import { Palette, Radius, Spacing } from "@/constants/theme";
-import { MOCK_LINK_PREVIEW } from "@/mocks/household";
+import { linkPreviewQueryOptions } from "@/hooks/use-link-preview-query";
 
 const CODE_LENGTH = 6;
 const CODE_SLOTS = Array.from({ length: CODE_LENGTH }, (_, i) => i);
@@ -20,26 +22,33 @@ const INFO_ICON_SIZE = 16;
 
 /**
  * 가족 초대 코드 입력 (웹 원본 pages/InviteCodePage.tsx).
- *
- * TODO: API 연동 — POST /households/link/preview 로 연동 가능 여부 확인.
- * 지금은 목 preview 가 linkable 이면 확인 화면으로 코드를 넘긴다.
+ * POST /households/link/preview 로 연동 가능 여부를 확인하고, 결과는 쿼리 캐시에 남겨
+ * 가구 연동 화면이 코드만 받아 같은 캐시를 읽게 한다 (웹의 location.state 대체).
  */
 export default function InviteCodeScreen() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const handleFindHousehold = () => {
+  const handleFindHousehold = async () => {
     setError(null);
     setLoading(true);
-    if (!MOCK_LINK_PREVIEW.linkable) {
-      setError("연동할 수 없는 코드예요. 다시 확인해 주세요.");
+    try {
+      const preview = await queryClient.fetchQuery(
+        linkPreviewQueryOptions(code),
+      );
+      if (!preview.linkable) {
+        setError("연동할 수 없는 코드예요. 다시 확인해 주세요.");
+        return;
+      }
+      router.push({ pathname: "/signup/link", params: { inviteCode: code } });
+    } catch (e) {
+      setError(getApiErrorMessage(e, "알 수 없는 오류가 발생했어요."));
+    } finally {
       setLoading(false);
-      return;
     }
-    setLoading(false);
-    router.push({ pathname: "/signup/link", params: { inviteCode: code } });
   };
 
   return (
@@ -107,7 +116,8 @@ export default function InviteCodeScreen() {
           label="가구 찾기"
           variant="dark"
           onPress={handleFindHousehold}
-          disabled={code.length !== CODE_LENGTH || loading}
+          disabled={code.length !== CODE_LENGTH}
+          loading={loading}
         />
       </View>
     </SafeAreaView>

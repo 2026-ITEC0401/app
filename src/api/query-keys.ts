@@ -14,6 +14,9 @@ export const queryKeys = {
       ["household", householdId, "emergencyAddress"] as const,
     inviteCode: (householdId: string) =>
       ["household", householdId, "inviteCode"] as const,
+    // 초대 코드 미리보기. 초대 코드 입력 화면이 채우고 가구 연동 화면이 같은 캐시를 읽는다.
+    linkPreview: (inviteCode: string) =>
+      ["household", "linkPreview", inviteCode] as const,
   },
   device: {
     all: ["device"] as const,

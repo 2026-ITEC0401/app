@@ -6,14 +6,19 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AlertCard } from "@/components/alert/alert-card";
 import { FullScreenAlert } from "@/components/alert/full-screen-alert";
+import { EmptyHouseholdView } from "@/components/home/empty-household-view";
 import { NotificationBanner } from "@/components/home/notification-banner";
 import { RoomCard } from "@/components/home/room-card";
 import { ThemedText } from "@/components/themed-text";
 import { Palette, Radius, Spacing } from "@/constants/theme";
-import { MOCK_ALERTS, MOCK_UNREAD_COUNT } from "@/mocks/alerts";
-import { MOCK_DEVICES } from "@/mocks/devices";
+import { useCurrentHouseholdQuery } from "@/hooks/use-current-household-query";
+import { useDevicesQuery } from "@/hooks/use-devices-query";
+import { useLatestAlarmQuery } from "@/hooks/use-latest-alarm-query";
+import { useUnreadCountQuery } from "@/hooks/use-unread-count-query";
+import { useHouseholdId } from "@/stores/session";
 import { type AlertWebData } from "@/types/alert";
 import { type RoomDevice } from "@/types/room";
+import { toWebDataFromList } from "@/utils/alert-mapper";
 
 const GRID_COLUMNS = 2;
 
@@ -28,21 +33,59 @@ function chunkIntoRows(devices: RoomDevice[]): RoomDevice[][] {
 
 /**
  * 홈 (웹 원본 pages/MainPage.tsx).
+ * 기기 목록 · 미확인 개수 · 최근 알림 1건을 조회해 보여준다.
  *
- * TODO: API·WebSocket 연동 — 기기 목록 / 미확인 개수 / 최신 알림 조회,
- * 실시간 alarm.created 수신 시 setCurrentAlert 로 전체 화면 팝업.
- * 미연동(unlinked)·주소 미등록 분기(EmptyHouseholdView)도 그때 붙인다.
+ * TODO: WebSocket 연동 — alarm.created 수신 시 realtimeAlerts 에 추가하고 FullScreenAlert 로 띄운다.
  */
 export default function HomeScreen() {
+  const householdId = useHouseholdId();
+  const householdQuery = useCurrentHouseholdQuery();
+  const devicesQuery = useDevicesQuery(householdId);
+  const unreadQuery = useUnreadCountQuery(householdId);
+  const latestQuery = useLatestAlarmQuery(householdId);
+
+  // 실시간(WS)으로 받은 알림. 최신순으로 앞에 쌓인다.
+  const [realtimeAlerts] = useState<AlertWebData[]>([]);
   const [currentAlert, setCurrentAlert] = useState<AlertWebData | null>(null);
-  const deviceRows = chunkIntoRows(MOCK_DEVICES);
+
+  // 가구 상태를 확인하기 전에는 빈 상태 카드가 깜빡이지 않도록 바탕만 그린다 (웹은 null)
+  if (householdQuery.isLoading) {
+    return (
+      <SafeAreaView style={styles.screen} edges={["top"]}>
+        <StatusBar style="light" />
+      </SafeAreaView>
+    );
+  }
+
+  const household = householdQuery.data ?? null;
+
+  // 미연동 — 가구가 없으면 초대 코드 안내만 표시
+  if (household?.household_link_status === "unlinked") {
+    return <EmptyHouseholdView variant="no-household" />;
+  }
+  // owner 인데 주소 미등록
+  if (household?.onboarding?.next_action === "register_emergency_address") {
+    return <EmptyHouseholdView variant="no-address" />;
+  }
+
+  const deviceRows = chunkIntoRows(devicesQuery.data?.devices ?? []);
+  const unreadCount = unreadQuery.data?.unread_count ?? 0;
+
+  // 서버의 최근 알림 1건 뒤에 실시간 알림이 앞으로 쌓인다. 같은 알림이 둘 다에 있으면 한 번만.
+  const latest = latestQuery.data?.alarm
+    ? toWebDataFromList(latestQuery.data.alarm)
+    : null;
+  const alertList =
+    latest && !realtimeAlerts.some((a) => a.id === latest.id)
+      ? [...realtimeAlerts, latest]
+      : realtimeAlerts;
 
   return (
     <SafeAreaView style={styles.screen} edges={["top"]}>
       <StatusBar style="light" />
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.top}>
-          <NotificationBanner unreadCount={MOCK_UNREAD_COUNT} />
+          <NotificationBanner unreadCount={unreadCount} />
         </View>
 
         <View style={styles.sheet}>
@@ -75,7 +118,7 @@ export default function HomeScreen() {
               실시간 소리 알림
             </ThemedText>
             <View style={styles.alertList}>
-              {MOCK_ALERTS.map((alert) => (
+              {alertList.map((alert) => (
                 <AlertCard
                   key={alert.id}
                   id={alert.id}

@@ -3,6 +3,7 @@ import { useLocalSearchParams } from "expo-router";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { ApiHttpError, getApiErrorMessage } from "@/api/http-error";
 import { EmergencyActions } from "@/components/alert/emergency-actions";
 import { ThemedText } from "@/components/themed-text";
 import { CenteredMessage } from "@/components/ui/centered-message";
@@ -10,7 +11,9 @@ import { InfoRow } from "@/components/ui/info-row";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { ALERT_CONFIG } from "@/constants/alert";
 import { Palette, Radius, Spacing } from "@/constants/theme";
-import { findMockAlert } from "@/mocks/alerts";
+import { useAlarmDetailQuery } from "@/hooks/use-alarm-detail-query";
+import { useHouseholdId } from "@/stores/session";
+import { toWebDataFromDetail } from "@/utils/alert-mapper";
 import { toAlertTimeParts } from "@/utils/alert-time";
 
 const TITLE = "상세 보기";
@@ -21,22 +24,33 @@ const BADGE_HEIGHT = 32;
 
 /**
  * 알림 상세 (웹 원본 pages/AlertInfoPage.tsx).
- *
- * TODO: API 연동 — GET /alarms/{id}. 로딩 · 404 · 에러는 Fallback 으로.
+ * GET /alarms/{id} — 로딩 · 404 · 에러는 Fallback 으로.
  */
 export default function AlertDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const alert = id ? findMockAlert(id) : undefined;
+  const householdId = useHouseholdId();
+  const detailQuery = useAlarmDetailQuery(householdId, id);
 
-  if (!alert) {
-    return (
-      <SafeAreaView style={styles.screen}>
-        <ScreenHeader title={TITLE} />
-        <CenteredMessage>알림을 찾을 수 없어요.</CenteredMessage>
-      </SafeAreaView>
+  if (detailQuery.isLoading) {
+    return <Fallback>불러오는 중…</Fallback>;
+  }
+  if (detailQuery.isError) {
+    const notFound =
+      detailQuery.error instanceof ApiHttpError &&
+      detailQuery.error.status === 404;
+    return notFound ? (
+      <Fallback>알림을 찾을 수 없어요.</Fallback>
+    ) : (
+      <Fallback tone="error">
+        {getApiErrorMessage(detailQuery.error, "알림을 불러오지 못했어요.")}
+      </Fallback>
     );
   }
+  if (!detailQuery.data) {
+    return <Fallback>알림을 찾을 수 없어요.</Fallback>;
+  }
 
+  const alert = toWebDataFromDetail(detailQuery.data.alarm);
   const config = ALERT_CONFIG[alert.type];
   const { date, meridiem, clock } = toAlertTimeParts(alert);
 
@@ -77,6 +91,15 @@ export default function AlertDetailScreen() {
 
         {alert.type === "Urgent" ? <EmergencyActions alert={alert} /> : null}
       </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+function Fallback({ children, tone }: { children: string; tone?: "error" }) {
+  return (
+    <SafeAreaView style={styles.screen}>
+      <ScreenHeader title={TITLE} />
+      <CenteredMessage tone={tone}>{children}</CenteredMessage>
     </SafeAreaView>
   );
 }

@@ -1,5 +1,3 @@
-import { useState } from "react";
-
 import { StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -7,15 +5,15 @@ import { ThemedText } from "@/components/themed-text";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { Toggle } from "@/components/ui/toggle";
 import { Palette, Radius, Shadow, Spacing } from "@/constants/theme";
+import { useAlarmSoundEnabled } from "@/hooks/use-alarm-sound-enabled";
 
 /**
  * 알림 설정 (웹 원본 pages/NotificationSettingsPage.tsx).
- * 알림 소리 ON/OFF 만 있고 서버 저장은 하지 않는다.
- *
- * TODO: 로컬 저장소 연동 — 웹은 localStorage, RN 은 expo-secure-store 등으로 영속화.
+ * 명세 회신: 진동 알림은 제거, 알림 소리 ON/OFF 만 기기 로컬(stores/preferences.ts)에 저장한다.
  */
 export default function NotificationSettingsScreen() {
-  const [soundEnabled, setSoundEnabled] = useState(true);
+  const { enabled: soundEnabled, setEnabled: setSoundEnabled } =
+    useAlarmSoundEnabled();
 
   return (
     <SafeAreaView style={styles.screen}>
@@ -31,7 +29,12 @@ export default function NotificationSettingsScreen() {
               기본 알림음 · 사이렌
             </ThemedText>
           </View>
-          <Toggle checked={soundEnabled} onChange={setSoundEnabled} />
+          {/* 저장소를 읽기 전(null)에는 기본값 ON 으로 그리되 조작은 막는다 */}
+          <Toggle
+            checked={soundEnabled ?? true}
+            disabled={soundEnabled === null}
+            onChange={setSoundEnabled}
+          />
         </View>
       </View>
     </SafeAreaView>

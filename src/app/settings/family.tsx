@@ -4,8 +4,10 @@ import * as Clipboard from "expo-clipboard";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { getApiErrorMessage } from "@/api/http-error";
 import { ThemedText } from "@/components/themed-text";
 import { Button } from "@/components/ui/button";
+import { CenteredMessage } from "@/components/ui/centered-message";
 import { ModalCard } from "@/components/ui/modal-card";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { TextField } from "@/components/ui/text-field";
@@ -16,20 +18,18 @@ import {
   Spacing,
   Typography,
 } from "@/constants/theme";
-import { MOCK_INVITE_CODE, MOCK_MEMBERS } from "@/mocks/household";
-import {
-  type HouseholdMember,
-  type InviteCodeResponse,
-} from "@/types/household";
+import { useDisplayNameMutation } from "@/hooks/use-display-name-mutation";
+import { useInviteCodeQuery } from "@/hooks/use-invite-code-query";
+import { useMembersQuery } from "@/hooks/use-members-query";
+import { useRotateInviteCodeMutation } from "@/hooks/use-rotate-invite-code-mutation";
+import { useHouseholdId } from "@/stores/session";
+import { type HouseholdMember } from "@/types/household";
 import { formatPhoneNumber } from "@/utils/phone";
 
 const SEOUL_OFFSET_MS = 9 * 60 * 60 * 1000;
 /** 웹 tracking-[0.3em] (head02 28px 기준) */
 const CODE_LETTER_SPACING = Typography.head02.fontSize * 0.3;
 const COPIED_RESET_MS = 1500;
-/** 재발급 요청 흉내 (API 연동 전) */
-const ROTATE_DELAY_MS = 600;
-const INVITE_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
 // expires_at(UTC ISO) → "8월 25일 14:03까지 유효해요." (Asia/Seoul 표시)
 function formatExpiry(iso: string): string {
@@ -43,37 +43,44 @@ function formatExpiry(iso: string): string {
 
 /**
  * 가족 설정 (웹 원본 pages/FamilySettingsPage.tsx).
- *
- * TODO: API 연동 — GET /members, PATCH/DELETE display-name, GET/POST invite-code.
- * 지금은 목 구성원을 로컬에서만 수정한다.
+ * GET /members 목록, 표시 이름(별칭) 편집, owner 의 초대 코드 조회·재발급.
  */
 export default function FamilySettingsScreen() {
-  const [members, setMembers] = useState<HouseholdMember[]>(MOCK_MEMBERS);
+  const householdId = useHouseholdId();
+  const membersQuery = useMembersQuery(householdId);
   const [editing, setEditing] = useState<HouseholdMember | null>(null);
   const [showInvite, setShowInvite] = useState(false);
 
+  const members = membersQuery.data?.members ?? [];
   const isOwner = members.some((m) => m.is_me && m.role === "owner");
-
-  const updateMember = (userId: string, patch: Partial<HouseholdMember>) => {
-    setMembers((prev) =>
-      prev.map((m) => (m.user_id === userId ? { ...m, ...patch } : m)),
-    );
-  };
 
   return (
     <SafeAreaView style={styles.screen}>
       <ScreenHeader title="가족 설정" />
 
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.list}>
-          {members.map((member) => (
-            <MemberCard
-              key={member.user_id}
-              member={member}
-              onEdit={() => setEditing(member)}
-            />
-          ))}
-        </View>
+        {!householdId ? (
+          <CenteredMessage inline>가구 연동이 필요합니다.</CenteredMessage>
+        ) : membersQuery.isLoading ? (
+          <CenteredMessage inline>불러오는 중…</CenteredMessage>
+        ) : membersQuery.isError ? (
+          <CenteredMessage inline tone="error">
+            {getApiErrorMessage(
+              membersQuery.error,
+              "구성원 정보를 불러오지 못했어요.",
+            )}
+          </CenteredMessage>
+        ) : (
+          <View style={styles.list}>
+            {members.map((member) => (
+              <MemberCard
+                key={member.user_id}
+                member={member}
+                onEdit={() => setEditing(member)}
+              />
+            ))}
+          </View>
+        )}
 
         {isOwner ? (
           <Button
@@ -85,31 +92,21 @@ export default function FamilySettingsScreen() {
         ) : null}
       </ScrollView>
 
-      {editing ? (
+      {editing && householdId ? (
         <EditNameModal
           member={editing}
-          onSave={(name) => {
-            updateMember(editing.user_id, {
-              display_name: name,
-              display_name_is_custom: true,
-            });
-            setEditing(null);
-          }}
-          onReset={() => {
-            updateMember(editing.user_id, {
-              display_name: editing.profile_name,
-              display_name_is_custom: false,
-            });
-            setEditing(null);
-          }}
+          householdId={householdId}
           onClose={() => setEditing(null)}
         />
       ) : null}
 
-      <InviteCodeModal
-        visible={showInvite}
-        onClose={() => setShowInvite(false)}
-      />
+      {householdId ? (
+        <InviteCodeModal
+          householdId={householdId}
+          visible={showInvite}
+          onClose={() => setShowInvite(false)}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -166,17 +163,33 @@ function MemberCard({
 
 function EditNameModal({
   member,
-  onSave,
-  onReset,
+  householdId,
   onClose,
 }: {
   member: HouseholdMember;
-  onSave: (name: string) => void;
-  onReset: () => void;
+  householdId: string;
   onClose: () => void;
 }) {
+  const displayNameMutation = useDisplayNameMutation();
   const [value, setValue] = useState(member.display_name);
+  const [error, setError] = useState<string | null>(null);
   const trimmed = value.trim();
+  const busy = displayNameMutation.isPending;
+
+  // 성공하면 mutation 훅이 구성원 목록을 무효화하므로 닫기만 하면 된다
+  const submit = async (displayName: string | null, fallback: string) => {
+    setError(null);
+    try {
+      await displayNameMutation.mutateAsync({
+        householdId,
+        memberUserId: member.user_id,
+        displayName,
+      });
+      onClose();
+    } catch (e) {
+      setError(getApiErrorMessage(e, fallback));
+    }
+  };
 
   return (
     <ModalCard visible onClose={onClose}>
@@ -198,10 +211,12 @@ function EditNameModal({
       {member.display_name_is_custom ? (
         <Pressable
           accessibilityRole="button"
-          onPress={onReset}
+          accessibilityState={{ disabled: busy }}
+          disabled={busy}
+          onPress={() => submit(null, "초기화하지 못했어요.")}
           style={({ pressed }) => [
             styles.textButton,
-            pressed && styles.textButtonPressed,
+            (pressed || busy) && styles.textButtonPressed,
           ]}
         >
           <ThemedText
@@ -212,6 +227,12 @@ function EditNameModal({
             가입 시 이름으로 초기화
           </ThemedText>
         </Pressable>
+      ) : null}
+
+      {error ? (
+        <ThemedText type="body03" color={Palette.red[200]}>
+          {error}
+        </ThemedText>
       ) : null}
 
       <View style={styles.modalActions}>
@@ -227,7 +248,8 @@ function EditNameModal({
           variant="dark"
           size="small"
           disabled={trimmed.length === 0}
-          onPress={() => onSave(trimmed)}
+          loading={busy}
+          onPress={() => submit(trimmed, "저장하지 못했어요.")}
           style={styles.modalAction}
         />
       </View>
@@ -236,18 +258,31 @@ function EditNameModal({
 }
 
 function InviteCodeModal({
+  householdId,
   visible,
   onClose,
 }: {
+  householdId: string;
   visible: boolean;
   onClose: () => void;
 }) {
-  const [invite, setInvite] = useState<InviteCodeResponse>(MOCK_INVITE_CODE);
-  const [rotating, setRotating] = useState(false);
+  const inviteQuery = useInviteCodeQuery(householdId, visible);
+  const rotateMutation = useRotateInviteCodeMutation();
+  const [rotateError, setRotateError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  const invite = inviteQuery.data ?? null;
+  const loading = inviteQuery.isLoading;
+  const rotating = rotateMutation.isPending;
+  const error =
+    rotateError ??
+    (inviteQuery.isError
+      ? getApiErrorMessage(inviteQuery.error, "코드를 불러오지 못했어요.")
+      : null);
+
   const copyCode = async () => {
+    if (!invite) return;
     try {
       await Clipboard.setStringAsync(invite.invite_code);
       setCopied(true);
@@ -258,22 +293,16 @@ function InviteCodeModal({
   };
 
   // POST .../invite-code/rotate — 되돌릴 수 없음. 기존 코드 즉시 폐기.
-  const rotate = () => {
-    setRotating(true);
+  const rotate = async () => {
     setNotice(null);
-    setTimeout(() => {
-      const code = Array.from(
-        { length: 6 },
-        () =>
-          INVITE_CODE_CHARS[
-            Math.floor(Math.random() * INVITE_CODE_CHARS.length)
-          ],
-      ).join("");
-      setInvite({ ...invite, invite_code: code });
+    setRotateError(null);
+    try {
+      await rotateMutation.mutateAsync(householdId);
       setCopied(false);
       setNotice("새 코드를 발급했어요. 기존 코드는 더 이상 쓸 수 없어요.");
-      setRotating(false);
-    }, ROTATE_DELAY_MS);
+    } catch (e) {
+      setRotateError(getApiErrorMessage(e, "재발급하지 못했어요."));
+    }
   };
 
   return (
@@ -282,7 +311,8 @@ function InviteCodeModal({
         초대 코드
       </ThemedText>
       <ThemedText type="body03" color={Palette.gray[300]}>
-        가족에게 이 코드를 공유하세요. {formatExpiry(invite.expires_at)}
+        가족에게 이 코드를 공유하세요.
+        {invite ? ` ${formatExpiry(invite.expires_at)}` : ""}
       </ThemedText>
 
       <View style={styles.codeBox}>
@@ -291,10 +321,19 @@ function InviteCodeModal({
           color={Palette.gray[600]}
           style={styles.codeText}
         >
-          {invite.invite_code}
+          {loading ? "…" : (invite?.invite_code ?? "------")}
         </ThemedText>
       </View>
 
+      {error ? (
+        <ThemedText
+          type="body03"
+          color={Palette.red[200]}
+          style={styles.centerText}
+        >
+          {error}
+        </ThemedText>
+      ) : null}
       {notice ? (
         <ThemedText
           type="body03"
@@ -307,12 +346,12 @@ function InviteCodeModal({
 
       <Pressable
         accessibilityRole="button"
-        accessibilityState={{ disabled: rotating }}
-        disabled={rotating}
+        accessibilityState={{ disabled: rotating || loading }}
+        disabled={rotating || loading}
         onPress={rotate}
         style={({ pressed }) => [
           styles.rotateButton,
-          (pressed || rotating) && styles.textButtonPressed,
+          (pressed || rotating || loading) && styles.textButtonPressed,
         ]}
       >
         <ThemedText
@@ -336,6 +375,7 @@ function InviteCodeModal({
           label={copied ? "복사됨!" : "복사"}
           variant="dark"
           size="small"
+          disabled={!invite}
           onPress={copyCode}
           style={styles.modalAction}
         />
