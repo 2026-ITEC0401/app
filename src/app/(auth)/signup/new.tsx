@@ -1,12 +1,6 @@
-import { ScreenStub } from "@/components/screen-stub";
+import { SignupForm } from "@/components/signup/signup-form";
 
-/** TODO: 웹 pages/SignupFormPage.tsx (signupType="new_household") 레이아웃 이식 */
+/** 신규 가구 가입 폼 (웹 /signup/new) */
 export default function SignupNewHouseholdScreen() {
-  return (
-    <ScreenStub
-      headerTitle="회원가입"
-      name="신규 가구 가입 폼"
-      detail="(auth)/signup/new"
-    />
-  );
+  return <SignupForm signupType="new_household" />;
 }

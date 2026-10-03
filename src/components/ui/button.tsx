@@ -7,13 +7,19 @@ import {
   type ViewStyle,
 } from "react-native";
 
-import { Palette, Radius } from "@/constants/theme";
+import { Palette, Radius, type TypographyToken } from "@/constants/theme";
 
 import { ThemedText } from "../themed-text";
 
-/** 웹 원본 components/Button.tsx 의 variant 와 1:1 */
+/**
+ * 웹 원본 components/Button.tsx 의 variant 4종 + `outline-gray`.
+ * outline-gray 는 웹에서 모달 안에 직접 그리던 "취소/닫기" 버튼(테두리 gray-200, 글자 black).
+ */
 export type ButtonVariant =
-  "primary" | "dark" | "outline-dark" | "outline-light";
+  "primary" | "dark" | "outline-dark" | "outline-light" | "outline-gray";
+
+/** large = 웹 h-14 (기본). small = 웹 모달 안의 h-12 버튼. */
+export type ButtonSize = "large" | "small";
 
 type VariantColors = {
   background: string;
@@ -45,16 +51,28 @@ const VARIANT_COLORS: Record<ButtonVariant, VariantColors> = {
     border: Palette.gray[100],
     text: Palette.gray[100],
   },
+  "outline-gray": {
+    background: Palette.white,
+    border: Palette.gray[200],
+    text: Palette.black,
+  },
 };
 
-/** 웹 h-14 */
-const BUTTON_HEIGHT = 56;
+const SIZE_STYLES: Record<
+  ButtonSize,
+  { height: number; borderRadius: number; textType: TypographyToken }
+> = {
+  large: { height: 56, borderRadius: Radius.medium, textType: "subtitle01" },
+  small: { height: 48, borderRadius: Radius.small, textType: "label03" },
+};
+
 /** 웹에서 비활성 배경을 따로 지정하지 않은 variant 는 dim 처리로 통일 (opacity-40) */
 const DISABLED_OPACITY = 0.4;
 
 export type ButtonProps = Omit<PressableProps, "style" | "children"> & {
   label: string;
   variant: ButtonVariant;
+  size?: ButtonSize;
   loading?: boolean;
   style?: StyleProp<ViewStyle>;
 };
@@ -62,6 +80,7 @@ export type ButtonProps = Omit<PressableProps, "style" | "children"> & {
 export function Button({
   label,
   variant,
+  size = "large",
   loading = false,
   disabled = false,
   style,
@@ -69,6 +88,7 @@ export function Button({
 }: ButtonProps) {
   const isInactive = disabled || loading;
   const colors = VARIANT_COLORS[variant];
+  const sizeStyle = SIZE_STYLES[size];
   const backgroundColor =
     isInactive && colors.disabledBackground
       ? colors.disabledBackground
@@ -81,7 +101,12 @@ export function Button({
       disabled={isInactive}
       style={({ pressed }) => [
         styles.base,
-        { backgroundColor, borderColor: colors.border },
+        {
+          height: sizeStyle.height,
+          borderRadius: sizeStyle.borderRadius,
+          backgroundColor,
+          borderColor: colors.border,
+        },
         isInactive && !colors.disabledBackground && styles.dimmed,
         pressed && styles.pressed,
         style,
@@ -92,7 +117,7 @@ export function Button({
         <ActivityIndicator color={colors.text} />
       ) : (
         <ThemedText
-          type="subtitle01"
+          type={sizeStyle.textType}
           color={colors.text}
           numberOfLines={1}
           adjustsFontSizeToFit
@@ -109,10 +134,8 @@ export function Button({
 const styles = StyleSheet.create({
   base: {
     width: "100%",
-    height: BUTTON_HEIGHT,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: Radius.medium,
     borderWidth: 1,
   },
   pressed: {
