@@ -19,7 +19,19 @@ export interface AuthTokens {
   expires_in: number;
 }
 
+// 명세 §4.2 POST /auth/login
+export interface LoginRequest {
+  login_id: string;
+  password: string;
+}
+
 export interface LoginResponse {
   user: AuthUser;
   tokens: AuthTokens;
+}
+
+// 명세 §4.5 PATCH /me/password
+export interface ChangePasswordRequest {
+  current_password: string;
+  new_password: string;
 }
