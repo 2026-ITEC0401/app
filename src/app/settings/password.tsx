@@ -4,17 +4,18 @@ import { useRouter } from "expo-router";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { clearAuth } from "@/api/auth";
+import { ApiHttpError } from "@/api/http-error";
 import { ThemedText } from "@/components/themed-text";
 import { Button } from "@/components/ui/button";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { TextField } from "@/components/ui/text-field";
 import { Palette, Spacing } from "@/constants/theme";
+import { useChangePasswordMutation } from "@/hooks/use-change-password-mutation";
 
 const TITLE = "비밀번호 설정";
 /** 변경 성공 후 로그인 화면으로 보내기까지의 대기 (웹과 동일) */
 const DONE_REDIRECT_MS = 1500;
-/** 변경 요청 흉내 (API 연동 전) */
-const SUBMIT_DELAY_MS = 500;
 
 // 명세 §2.3 비밀번호 규칙: 10자 이상, 영문자와 숫자 포함
 function validateNewPassword(pw: string): string | null {
@@ -27,23 +28,22 @@ function validateNewPassword(pw: string): string | null {
 
 /**
  * 비밀번호 설정 (웹 원본 pages/PasswordSettingsPage.tsx).
- * 명세 §4.5 PATCH /me/password — 성공(204) 시 토큰 전면 무효화 → 재로그인.
- *
- * TODO: API 연동 — 서버 field_errors 를 입력칸 하단에 표시, 토큰 정리.
+ * 명세 §4.5 PATCH /me/password — 성공(204) 시 토큰 전면 무효화 → 로컬 세션 정리 후 재로그인.
  */
 export default function PasswordSettingsScreen() {
   const router = useRouter();
+  const changePasswordMutation = useChangePasswordMutation();
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   // 서버 검증 오류(field_errors) — 입력칸 하단 노출
-  const [fieldErrors] = useState<Record<string, string>>({});
-  const [submitting, setSubmitting] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [done, setDone] = useState(false);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     setError(null);
+    setFieldErrors({});
 
     if (!current) {
       setError("현재 비밀번호를 입력해 주세요.");
@@ -59,12 +59,25 @@ export default function PasswordSettingsScreen() {
       return;
     }
 
-    setSubmitting(true);
-    setTimeout(() => {
-      setSubmitting(false);
+    try {
+      await changePasswordMutation.mutateAsync({
+        current_password: current,
+        new_password: next,
+      });
+      // 성공 시 204 → 기존 토큰 전면 무효화. 안내를 잠시 보여준 뒤 로컬 세션 정리 + 재로그인 유도.
       setDone(true);
-      setTimeout(() => router.replace("/login"), DONE_REDIRECT_MS);
-    }, SUBMIT_DELAY_MS);
+      setTimeout(async () => {
+        await clearAuth();
+        router.replace("/login");
+      }, DONE_REDIRECT_MS);
+    } catch (e) {
+      if (e instanceof ApiHttpError) {
+        if (e.field_errors) setFieldErrors(e.field_errors);
+        setError(e.message);
+      } else {
+        setError("비밀번호를 변경하지 못했어요. 잠시 후 다시 시도해 주세요.");
+      }
+    }
   };
 
   if (done) {
@@ -146,7 +159,7 @@ export default function PasswordSettingsScreen() {
           label="변경하기"
           variant="dark"
           onPress={handleSubmit}
-          loading={submitting}
+          loading={changePasswordMutation.isPending}
           style={styles.submit}
         />
       </ScrollView>

@@ -4,12 +4,14 @@ import { useRouter } from "expo-router";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { getApiErrorMessage } from "@/api/http-error";
 import { ThemedText } from "@/components/themed-text";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { TextField } from "@/components/ui/text-field";
 import { Palette, Radius, Spacing } from "@/constants/theme";
+import { useSignupMutation } from "@/hooks/use-signup-mutation";
 import type { SignupType } from "@/types/signup";
 
 export type SignupFormProps = {
@@ -18,12 +20,12 @@ export type SignupFormProps = {
 
 /**
  * 회원가입 폼 (웹 원본 pages/SignupFormPage.tsx). /signup/new 와 /signup/family 가 공유한다.
- *
- * TODO: API 연동 — POST /auth/signup 후 토큰 저장. 지금은 골격만:
- * 신규 가구 → 주소 등록 / 가족 → 초대 코드 로 이동.
+ * POST /auth/signup 성공 시 토큰 저장(api/auth.ts) 후
+ * 신규 가구 → 주소 등록 / 가족 → 초대 코드 로 이동한다.
  */
 export function SignupForm({ signupType }: SignupFormProps) {
   const router = useRouter();
+  const signupMutation = useSignupMutation();
   const isNew = signupType === "new_household";
 
   const [name, setName] = useState("");
@@ -33,7 +35,6 @@ export function SignupForm({ signupType }: SignupFormProps) {
   const [passwordCheck, setPasswordCheck] = useState("");
   const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
 
   // 빈 칸 없음 + 비밀번호 일치. 상세 규칙(§2.3)은 서버 field_errors로 처리
   const isFormValid =
@@ -45,10 +46,24 @@ export function SignupForm({ signupType }: SignupFormProps) {
     password === passwordCheck &&
     agreed;
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     setError(null);
-    setLoading(true);
-    router.push(isNew ? "/signup/address" : "/signup/invite");
+    try {
+      await signupMutation.mutateAsync({
+        login_id: loginId,
+        name,
+        phone_number: phoneNumber,
+        password,
+        signup_type: signupType,
+        household_name: isNew ? `${name} 가구` : undefined,
+        terms_service_agreed: agreed,
+        privacy_agreed: agreed,
+      });
+      // 계정이 이미 만들어졌으므로 뒤로가기로 이 폼에 돌아와 다시 제출하지 않도록 replace 한다
+      router.replace(isNew ? "/signup/address" : "/signup/invite");
+    } catch (e) {
+      setError(getApiErrorMessage(e, "알 수 없는 오류가 발생했어요."));
+    }
   };
 
   return (
@@ -148,7 +163,8 @@ export function SignupForm({ signupType }: SignupFormProps) {
           label="가입 완료"
           variant="dark"
           onPress={handleSubmit}
-          disabled={!isFormValid || loading}
+          disabled={!isFormValid}
+          loading={signupMutation.isPending}
         />
       </ScrollView>
     </SafeAreaView>

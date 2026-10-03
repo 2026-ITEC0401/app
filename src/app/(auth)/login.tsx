@@ -5,11 +5,13 @@ import { ChevronLeft } from "lucide-react-native";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { getApiErrorMessage } from "@/api/http-error";
 import { ThemedText } from "@/components/themed-text";
 import { Button } from "@/components/ui/button";
 import { HEADER_HEIGHT } from "@/components/ui/screen-header";
 import { TextField } from "@/components/ui/text-field";
 import { Palette, Spacing } from "@/constants/theme";
+import { useLoginMutation } from "@/hooks/use-login-mutation";
 
 const BACK_BUTTON_SIZE = 40;
 const BACK_ICON_SIZE = 28;
@@ -17,21 +19,35 @@ const BACK_ICON_SIZE = 28;
 /** 로그인 (웹 원본 pages/LoginPage.tsx) */
 export default function LoginScreen() {
   const router = useRouter();
+  const loginMutation = useLoginMutation();
   const [loginId, setLoginId] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
 
-  // TODO: 인증 API 연동 (POST /auth/login) — 토큰 저장 후 가구 연동 상태에 따라 분기.
-  // 지금은 골격만: 입력이 비면 에러, 아니면 홈으로.
-  const handleSubmit = () => {
+  // POST /auth/login — 토큰 저장은 api/auth.ts 가 한다.
+  // 미연동 계정은 토큰만 저장된 채 안내 문구를 띄운다 (웹과 동일). 다음 진입 시 홈이 초대 코드 입력을 안내한다.
+  const handleSubmit = async () => {
     setError(null);
     if (!loginId || !password) {
       setError("아이디와 비밀번호를 입력해 주세요.");
       return;
     }
-    setLoading(true);
-    router.replace("/");
+    try {
+      const res = await loginMutation.mutateAsync({
+        login_id: loginId,
+        password,
+      });
+      if (
+        res.user.household_link_status !== "linked" ||
+        !res.user.household_id
+      ) {
+        setError("가구 연동이 필요합니다. 초대 코드를 입력해 주세요.");
+        return;
+      }
+      router.replace("/");
+    } catch (e) {
+      setError(getApiErrorMessage(e, "알 수 없는 오류가 발생했어요."));
+    }
   };
 
   return (
@@ -94,7 +110,7 @@ export default function LoginScreen() {
           label="로그인"
           variant="dark"
           onPress={handleSubmit}
-          disabled={loading}
+          loading={loginMutation.isPending}
         />
       </ScrollView>
     </SafeAreaView>
