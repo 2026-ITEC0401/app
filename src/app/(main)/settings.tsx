@@ -8,9 +8,12 @@ import { MenuGroup } from "@/components/ui/menu-group";
 import { MenuRow } from "@/components/ui/menu-row";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { Palette, Radius, Shadow, Spacing } from "@/constants/theme";
+import { useAlarmSoundEnabled } from "@/hooks/use-alarm-sound-enabled";
+import { useCurrentHouseholdQuery } from "@/hooks/use-current-household-query";
+import { useDevicesQuery } from "@/hooks/use-devices-query";
 import { useLogoutMutation } from "@/hooks/use-logout-mutation";
-import { MOCK_DEVICES } from "@/mocks/devices";
-import { MOCK_CURRENT_HOUSEHOLD, MOCK_ME } from "@/mocks/household";
+import { useMeQuery } from "@/hooks/use-me-query";
+import { useHouseholdId } from "@/stores/session";
 
 /** 웹 h-14 w-14 */
 const AVATAR_SIZE = 56;
@@ -18,22 +21,34 @@ const AVATAR_ICON_SIZE = 28;
 
 /**
  * 설정 탭 (웹 원본 pages/SettingsPage.tsx).
- *
- * TODO: API 연동 — GET /me, GET /devices, GET /households/current.
- * TODO: 알림음 설정은 stores/preferences.ts 연동 후 실제 값으로.
+ * GET /me · GET /devices · GET /households/current 와 로컬 알림음 설정을 요약해 보여준다.
  */
 export default function SettingsScreen() {
   const router = useRouter();
+  const householdId = useHouseholdId();
+  const householdQuery = useCurrentHouseholdQuery();
+  const meQuery = useMeQuery();
+  const devicesQuery = useDevicesQuery(householdId);
+  const { enabled: soundEnabled } = useAlarmSoundEnabled();
   const logoutMutation = useLogoutMutation();
 
-  const alarmSoundLabel = "소리 켬";
-  const deviceCount = {
-    total: MOCK_DEVICES.length,
-    connected: MOCK_DEVICES.filter((d) => d.ui_status === "connected").length,
-  };
-  const deviceValue = `${deviceCount.total}대 중 ${deviceCount.connected}대 연결`;
-  const profileSubtitle = `기기 ${deviceCount.connected}대 연결됨`;
-  const householdName = MOCK_CURRENT_HOUSEHOLD.household?.name;
+  // 저장소를 아직 못 읽었으면 빈 값 (웹은 동기 읽기라 항상 값이 있었다)
+  const alarmSoundLabel =
+    soundEnabled === null ? "" : soundEnabled ? "소리 켬" : "소리 끔";
+  const devices = devicesQuery.data?.devices;
+  const deviceCount = devices
+    ? {
+        total: devices.length,
+        connected: devices.filter((d) => d.ui_status === "connected").length,
+      }
+    : null;
+  const deviceValue = deviceCount
+    ? `${deviceCount.total}대 중 ${deviceCount.connected}대 연결`
+    : "";
+  const profileSubtitle = deviceCount
+    ? `기기 ${deviceCount.connected}대 연결됨`
+    : "";
+  const householdName = householdQuery.data?.household?.name;
 
   // POST /auth/logout — 서버 폐기가 실패해도 로컬 세션은 정리되므로 결과와 무관하게 로그인으로 보낸다
   const handleLogout = () => {
@@ -54,10 +69,12 @@ export default function SettingsScreen() {
           </View>
           <View style={styles.profileText}>
             <ThemedText type="subtitle01" color={Palette.gray[600]}>
-              {MOCK_ME.name}님
+              {meQuery.data?.name ?? "사용자"}님
             </ThemedText>
             <ThemedText type="body02" color={Palette.gray[300]}>
-              {householdName ?? profileSubtitle}
+              {householdQuery.isLoading
+                ? ""
+                : (householdName ?? profileSubtitle)}
             </ThemedText>
           </View>
         </View>

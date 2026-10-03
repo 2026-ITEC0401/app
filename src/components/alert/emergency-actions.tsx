@@ -9,7 +9,9 @@ import {
   buildReportBody,
 } from "@/constants/emergency";
 import { Palette, Radius, Shadow, Spacing } from "@/constants/theme";
-import { MOCK_EMERGENCY_ADDRESS, MOCK_MEMBERS } from "@/mocks/household";
+import { useEmergencyAddressQuery } from "@/hooks/use-emergency-address-query";
+import { useMembersQuery } from "@/hooks/use-members-query";
+import { useHouseholdId } from "@/stores/session";
 import { type AlertWebData } from "@/types/alert";
 import { toAlertTimeParts } from "@/utils/alert-time";
 import { buildSmsHref } from "@/utils/sms";
@@ -25,13 +27,17 @@ export type EmergencyActionsProps = {
 
 /**
  * 긴급 알림 상세의 신고 버튼 묶음 (웹 원본 components/EmergencyActions.tsx).
- *
- * TODO: API 연동 시 MOCK_MEMBERS / MOCK_EMERGENCY_ADDRESS 를
- * getMembers / getEmergencyAddress 응답으로 교체한다.
+ * 권한(role)·가족 전화·긴급 주소를 실데이터로 확보한다. 주소는 미등록(404)일 수 있다.
+ * 구성원 조회에 실패하면 웹과 같이 빈 목록으로 보고 보호자용 버튼을 그린다.
  */
 export function EmergencyActions({ alert }: EmergencyActionsProps) {
-  const members = MOCK_MEMBERS;
-  const address = MOCK_EMERGENCY_ADDRESS;
+  const householdId = useHouseholdId();
+  const membersQuery = useMembersQuery(householdId);
+  const addressQuery = useEmergencyAddressQuery(householdId);
+
+  const members = membersQuery.data?.members ?? [];
+  const address = addressQuery.data ?? null;
+  const loading = membersQuery.isLoading || addressQuery.isLoading;
 
   const me = members.find((m) => m.is_me);
   const isOwner = me?.role === "owner";
@@ -44,6 +50,20 @@ export function EmergencyActions({ alert }: EmergencyActionsProps) {
   const openSms = (recipients: string[], body?: string) => {
     Linking.openURL(buildSmsHref(recipients, body));
   };
+
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <ThemedText
+          type="body02"
+          color={Palette.gray[300]}
+          style={styles.loading}
+        >
+          불러오는 중…
+        </ThemedText>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -160,5 +180,8 @@ const styles = StyleSheet.create({
   },
   label: {
     flexShrink: 1,
+  },
+  loading: {
+    textAlign: "center",
   },
 });

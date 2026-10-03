@@ -5,80 +5,111 @@ import { useLocalSearchParams } from "expo-router";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { getApiErrorMessage } from "@/api/http-error";
 import { ThemedText } from "@/components/themed-text";
 import { CenteredMessage } from "@/components/ui/centered-message";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { Toggle } from "@/components/ui/toggle";
 import { reconnectNotice, roomImages } from "@/constants/room";
 import { Palette, Radius, Shadow, Spacing } from "@/constants/theme";
-import { useCurrentHousehold } from "@/hooks/use-current-household";
-import { MOCK_DEVICES } from "@/mocks/devices";
-import { type RoomDevice } from "@/types/room";
+import { useCurrentHouseholdQuery } from "@/hooks/use-current-household-query";
+import { useDevicesQuery } from "@/hooks/use-devices-query";
+import { useSetConnectionMutation } from "@/hooks/use-set-connection-mutation";
+import { useSetLedAlertMutation } from "@/hooks/use-set-led-alert-mutation";
+import { useHouseholdId } from "@/stores/session";
 
 const TITLE = "상세 보기";
 /** 웹 h-50 w-50 / border-8 / 이미지 h-24 w-24 */
 const CIRCLE_SIZE = 200;
 const CIRCLE_BORDER_WIDTH = 8;
 const IMAGE_SIZE = 96;
-/** 토글 요청 흉내 (API 연동 전) */
-const PENDING_DELAY_MS = 800;
 
 /**
  * 기기 상세 (웹 원본 pages/DeviceSettingPage.tsx).
+ * 단건 조회 API 가 없어 GET /devices 목록에서 대상 기기를 추출한다.
+ * 토글은 PATCH connection / settings 후 서버 상태로 재확정한다 (낙관적 업데이트 배제).
  *
- * TODO: API·WebSocket 연동 — GET /devices 에서 대상 기기 추출,
- * PATCH connection / led-alert 후 서버 상태로 재확정. 지금은 로컬 상태만 바꾼다.
+ * TODO: WebSocket 연동 — device.status_changed 실시간 반영.
  */
 export default function DeviceSettingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { isOwner } = useCurrentHousehold();
+  const householdId = useHouseholdId();
+  const { isOwner } = useCurrentHouseholdQuery();
+  const devicesQuery = useDevicesQuery(householdId);
+  const setConnectionMutation = useSetConnectionMutation();
+  const setLedAlertMutation = useSetLedAlertMutation();
 
-  const [device, setDevice] = useState<RoomDevice | null>(
-    () => MOCK_DEVICES.find((d) => d.device_id === id) ?? null,
-  );
   // 어떤 토글이 서버 응답 대기 중인지 (낙관적 업데이트 대신 진행 표시)
   const [pending, setPending] = useState<"connection" | "led" | null>(null);
   // 연결 켜기 요청은 성공했지만 기기가 여전히 connected 가 아닐 때의 안내
   const [notice, setNotice] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  if (!device) {
+  const device =
+    devicesQuery.data?.devices.find((d) => d.device_id === id) ?? null;
+
+  if (!householdId) {
+    return <Fallback>가구 연동이 필요합니다.</Fallback>;
+  }
+  if (devicesQuery.isLoading) {
+    return <Fallback>불러오는 중…</Fallback>;
+  }
+  if (devicesQuery.isError) {
     return (
-      <SafeAreaView style={styles.screen}>
-        <ScreenHeader title={TITLE} />
-        <CenteredMessage>기기를 찾을 수 없어요.</CenteredMessage>
-      </SafeAreaView>
+      <Fallback tone="error">
+        {getApiErrorMessage(devicesQuery.error, "기기를 불러오지 못했어요.")}
+      </Fallback>
     );
+  }
+  if (!device) {
+    return <Fallback>기기를 찾을 수 없어요.</Fallback>;
   }
 
   const isConnected = device.ui_status === "connected";
 
-  const toggleConnection = (next: boolean) => {
-    setPending("connection");
-    setNotice(null);
-    setTimeout(() => {
-      setDevice((prev) =>
-        prev
-          ? {
-              ...prev,
-              desired_mqtt_connected: next,
-              ui_status: next ? "connected" : "disabled_by_owner",
-            }
-          : prev,
-      );
-      // 켜기 요청이 성공했어도 기기가 heartbeat 를 안 보내면 상태가 그대로다 → 이유 안내
-      if (next && device.ui_status !== "connected") {
-        setNotice(reconnectNotice[device.ui_status] ?? null);
-      }
-      setPending(null);
-    }, PENDING_DELAY_MS);
+  // 변경 후 서버 상태로 재확정 (응답 스키마 미정의 대응)
+  const refetchDevice = async () => {
+    const res = await devicesQuery.refetch();
+    return res.data?.devices.find((d) => d.device_id === id) ?? null;
   };
 
-  const toggleLed = (next: boolean) => {
-    setPending("led");
-    setTimeout(() => {
-      setDevice((prev) => (prev ? { ...prev, led_alert_enabled: next } : prev));
+  const toggleConnection = async (next: boolean) => {
+    setPending("connection");
+    setError(null);
+    setNotice(null);
+    try {
+      await setConnectionMutation.mutateAsync({
+        householdId,
+        deviceId: device.device_id,
+        enabled: next,
+      });
+      const updated = await refetchDevice();
+      // 켜기 요청이 성공했어도 기기가 heartbeat 를 안 보내면 상태가 그대로다 → 이유 안내
+      if (next && updated) {
+        setNotice(reconnectNotice[updated.ui_status] ?? null);
+      }
+    } catch (e) {
+      setError(getApiErrorMessage(e, "변경하지 못했어요."));
+    } finally {
       setPending(null);
-    }, PENDING_DELAY_MS);
+    }
+  };
+
+  const toggleLed = async (next: boolean) => {
+    setPending("led");
+    setError(null);
+    try {
+      await setLedAlertMutation.mutateAsync({
+        householdId,
+        deviceId: device.device_id,
+        enabled: next,
+      });
+      await refetchDevice();
+    } catch (e) {
+      setError(getApiErrorMessage(e, "변경하지 못했어요."));
+    } finally {
+      setPending(null);
+    }
   };
 
   return (
@@ -147,8 +178,26 @@ export default function DeviceSettingScreen() {
               {notice}
             </ThemedText>
           ) : null}
+          {error ? (
+            <ThemedText
+              type="body03"
+              color={Palette.red[200]}
+              style={styles.note}
+            >
+              {error}
+            </ThemedText>
+          ) : null}
         </View>
       </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+function Fallback({ children, tone }: { children: string; tone?: "error" }) {
+  return (
+    <SafeAreaView style={styles.screen}>
+      <ScreenHeader title={TITLE} />
+      <CenteredMessage tone={tone}>{children}</CenteredMessage>
     </SafeAreaView>
   );
 }

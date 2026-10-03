@@ -1,10 +1,12 @@
 import { StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { getApiErrorMessage } from "@/api/http-error";
 import { ThemedText } from "@/components/themed-text";
+import { CenteredMessage } from "@/components/ui/centered-message";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { Palette, Radius, Shadow, Spacing } from "@/constants/theme";
-import { MOCK_ME } from "@/mocks/household";
+import { useMeQuery } from "@/hooks/use-me-query";
 import { type AuthUser } from "@/types/auth";
 import { formatPhoneNumber } from "@/utils/phone";
 
@@ -22,37 +24,44 @@ function formatJoinedDate(iso: string): string {
 /**
  * 개인정보 조회 (웹 원본 pages/ProfilePage.tsx).
  * 명세 §4.4 GET /me — 조회 전용. 이름·전화번호 수정 API는 명세에 없어 수정 기능 없음.
- *
- * TODO: API 연동 — GET /me. 로딩 · 에러는 CenteredMessage 로.
  */
 export default function ProfileScreen() {
-  const me = MOCK_ME;
+  const meQuery = useMeQuery();
+  const me = meQuery.data;
 
   return (
     <SafeAreaView style={styles.screen}>
       <ScreenHeader title="개인정보 조회" />
 
       <View style={styles.content}>
-        <View style={styles.card}>
-          <ProfileRow label="로그인 아이디" value={me.login_id} />
-          <ProfileRow label="이름" value={me.name} />
-          <ProfileRow
-            label="휴대폰 번호"
-            value={formatPhoneNumber(me.phone_number)}
-          />
-          <ProfileRow
-            label="계정 유형"
-            value={ACCOUNT_TYPE_LABEL[me.account_type]}
-            last={!me.created_at}
-          />
-          {me.created_at ? (
+        {meQuery.isLoading ? (
+          <CenteredMessage inline>불러오는 중…</CenteredMessage>
+        ) : meQuery.isError ? (
+          <CenteredMessage inline tone="error">
+            {getApiErrorMessage(meQuery.error, "정보를 불러오지 못했어요.")}
+          </CenteredMessage>
+        ) : me ? (
+          <View style={styles.card}>
+            <ProfileRow label="로그인 아이디" value={me.login_id} />
+            <ProfileRow label="이름" value={me.name} />
             <ProfileRow
-              label="가입일"
-              value={formatJoinedDate(me.created_at)}
-              last
+              label="휴대폰 번호"
+              value={formatPhoneNumber(me.phone_number)}
             />
-          ) : null}
-        </View>
+            <ProfileRow
+              label="계정 유형"
+              value={ACCOUNT_TYPE_LABEL[me.account_type]}
+              last={!me.created_at}
+            />
+            {me.created_at ? (
+              <ProfileRow
+                label="가입일"
+                value={formatJoinedDate(me.created_at)}
+                last
+              />
+            ) : null}
+          </View>
+        ) : null}
       </View>
     </SafeAreaView>
   );
