@@ -28,8 +28,7 @@ const IMAGE_SIZE = 96;
  * 기기 상세 (웹 원본 pages/DeviceSettingPage.tsx).
  * 단건 조회 API 가 없어 GET /devices 목록에서 대상 기기를 추출한다.
  * 토글은 PATCH connection / settings 후 서버 상태로 재확정한다 (낙관적 업데이트 배제).
- *
- * TODO: WebSocket 연동 — device.status_changed 실시간 반영.
+ * 실시간 상태(device.status_changed)는 홈이 연 소켓이 기기 목록 캐시에 써넣으므로 여기선 구독만 한다.
  */
 export default function DeviceSettingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();

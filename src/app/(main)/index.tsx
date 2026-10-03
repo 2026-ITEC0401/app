@@ -13,6 +13,7 @@ import { ThemedText } from "@/components/themed-text";
 import { Palette, Radius, Spacing } from "@/constants/theme";
 import { useCurrentHouseholdQuery } from "@/hooks/use-current-household-query";
 import { useDevicesQuery } from "@/hooks/use-devices-query";
+import { useHouseholdSocket } from "@/hooks/use-household-socket";
 import { useLatestAlarmQuery } from "@/hooks/use-latest-alarm-query";
 import { useUnreadCountQuery } from "@/hooks/use-unread-count-query";
 import { useHouseholdId } from "@/stores/session";
@@ -33,9 +34,9 @@ function chunkIntoRows(devices: RoomDevice[]): RoomDevice[][] {
 
 /**
  * 홈 (웹 원본 pages/MainPage.tsx).
- * 기기 목록 · 미확인 개수 · 최근 알림 1건을 조회해 보여준다.
- *
- * TODO: WebSocket 연동 — alarm.created 수신 시 realtimeAlerts 에 추가하고 FullScreenAlert 로 띄운다.
+ * 기기 목록 · 미확인 개수 · 최근 알림 1건을 조회하고, 가구 소켓을 구독해
+ * 실시간 알림은 목록 맨 앞 + 전체 화면 팝업으로, 기기 상태는 캐시 갱신으로 반영한다.
+ * 홈 탭은 로그인 중 항상 마운트돼 있어 소켓도 여기서만 연다 (기기 화면들은 캐시를 공유).
  */
 export default function HomeScreen() {
   const householdId = useHouseholdId();
@@ -45,8 +46,17 @@ export default function HomeScreen() {
   const latestQuery = useLatestAlarmQuery(householdId);
 
   // 실시간(WS)으로 받은 알림. 최신순으로 앞에 쌓인다.
-  const [realtimeAlerts] = useState<AlertWebData[]>([]);
+  const [realtimeAlerts, setRealtimeAlerts] = useState<AlertWebData[]>([]);
   const [currentAlert, setCurrentAlert] = useState<AlertWebData | null>(null);
+
+  useHouseholdSocket(householdId, {
+    onAlarm: (alert) => {
+      setCurrentAlert(alert);
+      setRealtimeAlerts((prev) =>
+        prev.some((a) => a.id === alert.id) ? prev : [alert, ...prev],
+      );
+    },
+  });
 
   // 가구 상태를 확인하기 전에는 빈 상태 카드가 깜빡이지 않도록 바탕만 그린다 (웹은 null)
   if (householdQuery.isLoading) {

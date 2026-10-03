@@ -31,8 +31,7 @@ const DISABLED_OPACITY = 0.4;
 /**
  * 기기 관리 (웹 원본 pages/DeviceListPage.tsx).
  * GET /devices 목록 + owner 의 재연결(PATCH connection).
- *
- * TODO: WebSocket 연동 — device.status_changed 실시간 반영.
+ * 실시간 상태(device.status_changed)는 홈이 연 소켓이 기기 목록 캐시에 써넣으므로 여기선 구독만 한다.
  */
 export default function DeviceListScreen() {
   const householdId = useHouseholdId();
