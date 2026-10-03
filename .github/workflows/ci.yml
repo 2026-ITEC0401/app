@@ -1,0 +1,55 @@
+name: CI
+
+# 품질 게이트: 포맷 / lint / 타입체크.
+# 네이티브 빌드는 무겁고 secret이 필요해서 여기선 돌리지 않는다.
+# (필요해지면 EAS Build 워크플로우를 따로 추가)
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+
+# GITHUB_TOKEN 권한 최소화 (읽기만 필요)
+permissions:
+  contents: read
+
+# 같은 브랜치에서 연속 푸시하면 이전 실행은 취소 (러너 절약)
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install deps
+        run: npm ci
+
+      # 아래는 expo가 아니라 도구를 직접 호출한다.
+      # expo lint는 app.config.ts를 평가하므로 .env 값에 의존할 수 있는데,
+      # CI엔 .env가 없으므로 raw eslint/tsc/prettier로 돌려 secret 없이 통과시킨다.
+      - name: Prettier check
+        run: npx prettier --check .
+
+      - name: ESLint
+        run: npx eslint .
+
+      # expo-env.d.ts는 gitignore된 생성 파일이라 CI 체크아웃엔 없다.
+      # 이 한 줄이 expo/types(*.css 등 모듈 선언)를 tsc에 물려준다.
+      # 없으면 css import에서 TS2307/TS2882가 난다. (expo start류로만 자동 생성됨)
+      - name: Ensure Expo generated types
+        run: |
+          if [ ! -f expo-env.d.ts ]; then
+            printf '/// <reference types="expo/types" />\n' > expo-env.d.ts
+          fi
+
+      - name: Typecheck
+        run: npx tsc --noEmit
