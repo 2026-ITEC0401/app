@@ -42,6 +42,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   plugins: [
     "expo-router",
+    // 토큰·가구 식별자·로컬 설정 저장소. `npx expo install` 은 동적 설정(app.config.ts)에
+    // 자동으로 못 쓰고 "Cannot automatically write to dynamic config" 경고만 내므로 직접 적는다.
+    "expo-secure-store",
     // Pretendard를 빌드 타임에 네이티브로 임베드한다.
     // useFonts() 런타임 로딩과 달리 첫 프레임부터 적용돼서 폰트가 깜빡이지 않는다.
     //
