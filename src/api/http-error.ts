@@ -29,6 +29,14 @@ export class ApiHttpError extends Error {
   }
 }
 
+/**
+ * 화면에 보여줄 에러 문구. 서버 메시지(ApiHttpError)가 있으면 그대로, 아니면 fallback.
+ * 웹 원본 화면마다 반복되던 `e instanceof ApiError ? e.message : "..."` 를 모았다.
+ */
+export function getApiErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof ApiHttpError ? error.message : fallback;
+}
+
 /** axios 에러 → ApiHttpError 로 정규화. 응답 인터셉터에서 사용한다. */
 export function toApiHttpError(error: unknown): ApiHttpError {
   if (error instanceof ApiHttpError) {

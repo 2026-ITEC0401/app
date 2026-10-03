@@ -8,6 +8,7 @@ import { MenuGroup } from "@/components/ui/menu-group";
 import { MenuRow } from "@/components/ui/menu-row";
 import { ScreenHeader } from "@/components/ui/screen-header";
 import { Palette, Radius, Shadow, Spacing } from "@/constants/theme";
+import { useLogoutMutation } from "@/hooks/use-logout-mutation";
 import { MOCK_DEVICES } from "@/mocks/devices";
 import { MOCK_CURRENT_HOUSEHOLD, MOCK_ME } from "@/mocks/household";
 
@@ -19,11 +20,11 @@ const AVATAR_ICON_SIZE = 28;
  * 설정 탭 (웹 원본 pages/SettingsPage.tsx).
  *
  * TODO: API 연동 — GET /me, GET /devices, GET /households/current.
- * TODO: 알림음 설정은 로컬 저장소(expo-secure-store 등) 연동 후 실제 값으로.
- * TODO: 로그아웃 — POST /auth/logout 후 토큰 정리.
+ * TODO: 알림음 설정은 stores/preferences.ts 연동 후 실제 값으로.
  */
 export default function SettingsScreen() {
   const router = useRouter();
+  const logoutMutation = useLogoutMutation();
 
   const alarmSoundLabel = "소리 켬";
   const deviceCount = {
@@ -34,8 +35,12 @@ export default function SettingsScreen() {
   const profileSubtitle = `기기 ${deviceCount.connected}대 연결됨`;
   const householdName = MOCK_CURRENT_HOUSEHOLD.household?.name;
 
+  // POST /auth/logout — 서버 폐기가 실패해도 로컬 세션은 정리되므로 결과와 무관하게 로그인으로 보낸다
   const handleLogout = () => {
-    router.replace("/login");
+    if (logoutMutation.isPending) return;
+    logoutMutation.mutate(undefined, {
+      onSettled: () => router.replace("/login"),
+    });
   };
 
   return (
