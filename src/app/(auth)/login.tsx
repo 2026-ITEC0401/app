@@ -12,6 +12,7 @@ import { HEADER_HEIGHT } from "@/components/ui/screen-header";
 import { TextField } from "@/components/ui/text-field";
 import { Palette, Spacing } from "@/constants/theme";
 import { useLoginMutation } from "@/hooks/use-login-mutation";
+import { resetToHome } from "@/utils/navigation";
 
 const BACK_BUTTON_SIZE = 40;
 const BACK_ICON_SIZE = 28;
@@ -44,7 +45,7 @@ export default function LoginScreen() {
         setError("가구 연동이 필요합니다. 초대 코드를 입력해 주세요.");
         return;
       }
-      router.replace("/");
+      resetToHome();
     } catch (e) {
       setError(getApiErrorMessage(e, "알 수 없는 오류가 발생했어요."));
     }

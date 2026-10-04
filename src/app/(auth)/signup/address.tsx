@@ -1,6 +1,5 @@
 import { useState } from "react";
 
-import { useRouter } from "expo-router";
 import { Search } from "lucide-react-native";
 import {
   Pressable,
@@ -21,6 +20,7 @@ import { useAddressSearchMutation } from "@/hooks/use-address-search-mutation";
 import { useUpdateEmergencyAddressMutation } from "@/hooks/use-update-emergency-address-mutation";
 import { useHouseholdId } from "@/stores/session";
 import { type AddressSearchItem } from "@/types/household";
+import { resetToHome } from "@/utils/navigation";
 
 /** 웹 h-15 */
 const SEARCH_BOX_HEIGHT = 60;
@@ -38,7 +38,6 @@ const TAG_RADIUS = 6;
  * §5.9 도로명주소 검색 → §5.8 긴급 주소 등록 (owner 전용).
  */
 export default function HouseholdAddressScreen() {
-  const router = useRouter();
   const householdId = useHouseholdId();
   const searchMutation = useAddressSearchMutation();
   const registerMutation = useUpdateEmergencyAddressMutation();
@@ -80,7 +79,7 @@ export default function HouseholdAddressScreen() {
           detail_source: "manual",
         },
       });
-      router.replace("/");
+      resetToHome();
     } catch (e) {
       setError(getApiErrorMessage(e, "주소 등록에 실패했어요."));
     }
@@ -88,7 +87,7 @@ export default function HouseholdAddressScreen() {
 
   return (
     <SafeAreaView style={styles.screen}>
-      <CompleteHeader onSkip={() => router.replace("/")} />
+      <CompleteHeader onSkip={() => resetToHome()} />
 
       <ScrollView
         contentContainerStyle={styles.content}

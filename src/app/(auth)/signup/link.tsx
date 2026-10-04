@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
+import { Redirect, useLocalSearchParams } from "expo-router";
 import { StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -13,6 +13,7 @@ import { Palette, Radius, Shadow, Spacing } from "@/constants/theme";
 import { useLinkHouseholdMutation } from "@/hooks/use-link-household-mutation";
 import { useLinkPreviewQuery } from "@/hooks/use-link-preview-query";
 import type { RoomLabel } from "@/types/room";
+import { resetToHome } from "@/utils/navigation";
 
 const TITLE = "가구 연동";
 const ROOM_LABELS: RoomLabel[] = ["현관", "거실", "안방", "화장실"];
@@ -25,7 +26,6 @@ const ROOM_LABELS: RoomLabel[] = ["현관", "거실", "안방", "화장실"];
  * 캐시가 비어 있으면(딥링크 등) 여기서 다시 조회한다.
  */
 export default function HouseholdLinkScreen() {
-  const router = useRouter();
   const { inviteCode } = useLocalSearchParams<{ inviteCode?: string }>();
   const previewQuery = useLinkPreviewQuery(inviteCode ?? null);
   const linkMutation = useLinkHouseholdMutation();
@@ -63,7 +63,7 @@ export default function HouseholdLinkScreen() {
     setError(null);
     try {
       await linkMutation.mutateAsync(inviteCode);
-      router.replace("/");
+      resetToHome();
     } catch (e) {
       setError(getApiErrorMessage(e, "알 수 없는 오류가 발생했어요."));
     }
