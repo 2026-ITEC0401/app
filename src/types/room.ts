@@ -18,6 +18,9 @@ export type DeviceUiStatus =
 
 export type DeviceNetworkStatus = "online" | "offline";
 
+// 기기 종류. alert_node = ESP32(알림 노드, LED 있음), hub = Raspberry Pi(허브)
+export type DeviceType = "alert_node" | "hub";
+
 // 명세 §6.1 GET /households/{id}/devices
 export interface RoomDevice {
   device_id: DeviceId;
@@ -25,6 +28,10 @@ export interface RoomDevice {
   // MQTT 연결 상태 (명세 desired_mqtt_connected). 추후 실제 reported 값에 물리면 됨
   desired_mqtt_connected: boolean; // 사용자가 키고 끄는 값
   ui_status: DeviceUiStatus; // 실제 기기의 상태
+  device_type: DeviceType;
+  // LED 알림 설정 지원 여부. ESP32(alert_node)만 true — false 면 LED 스위치를 그리지 않는다.
+  // 미지원 기기에 PATCH settings 를 보내면 409 DEVICE_LED_CONTROL_UNSUPPORTED.
+  led_alert_control_supported: boolean;
   led_alert_enabled: boolean;
   // 아래는 §6.1 조회 응답 부가 필드 (표시/디버깅용, 없을 수 있음)
   reported_mqtt_connected?: boolean;

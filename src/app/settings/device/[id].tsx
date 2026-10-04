@@ -149,14 +149,17 @@ export default function DeviceSettingScreen() {
             />
           </SettingRow>
 
-          <SettingRow label="LED 알림">
-            <Toggle
-              checked={device.led_alert_enabled}
-              disabled={!isOwner || pending !== null}
-              loading={pending === "led"}
-              onChange={toggleLed}
-            />
-          </SettingRow>
+          {/* LED 스위치는 지원 기기(ESP32)에만. 허브(Raspberry Pi)는 LED 가 없어 서버도 409 를 준다 */}
+          {device.led_alert_control_supported ? (
+            <SettingRow label="LED 알림">
+              <Toggle
+                checked={device.led_alert_enabled}
+                disabled={!isOwner || pending !== null}
+                loading={pending === "led"}
+                onChange={toggleLed}
+              />
+            </SettingRow>
+          ) : null}
 
           {/* owner만 변경 가능 (§6.2·§6.3). member는 조회 전용 */}
           {!isOwner ? (
