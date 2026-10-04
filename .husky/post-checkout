@@ -13,6 +13,9 @@ case "$(uname -s)" in
 esac
 
 tmp="$(node -e 'process.stdout.write(require("os").tmpdir())')"
-rm -rf "$tmp/metro-cache" .expo 2>/dev/null
+# husky 9 는 훅을 `sh -e` 로 실행한다. Windows 에서 Metro 가 캐시 파일을 잡고 있으면 rm 이
+# 실패하는데, 그러면 훅이 code 1 로 끝나 `git switch && …` 체인이 끊긴다 (체크아웃 자체는 이미 완료).
+# 캐시 정리는 best-effort 라 실패해도 체크아웃을 실패로 만들지 않는다.
+rm -rf "$tmp/metro-cache" .expo 2>/dev/null || true
 
 echo "🧹 Metro 캐시 정리 (브랜치 전환) — 다음 expo start는 fresh crawl"
