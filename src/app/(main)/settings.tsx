@@ -115,6 +115,20 @@ export default function SettingsScreen() {
             로그아웃
           </ThemedText>
         </Pressable>
+
+        {/* 탈퇴는 비밀번호 확인과 owner 경고가 필요해 전용 화면으로 보낸다 */}
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.push("/settings/withdraw")}
+          style={({ pressed }) => [
+            styles.withdraw,
+            pressed && styles.logoutPressed,
+          ]}
+        >
+          <ThemedText type="body03" color={Palette.gray[300]}>
+            회원 탈퇴
+          </ThemedText>
+        </Pressable>
       </ScrollView>
     </SafeAreaView>
   );
@@ -158,5 +172,9 @@ const styles = StyleSheet.create({
   },
   logoutPressed: {
     opacity: 0.6,
+  },
+  withdraw: {
+    alignSelf: "center",
+    marginTop: Spacing.three,
   },
 });
