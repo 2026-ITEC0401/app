@@ -12,6 +12,7 @@ import { ThemedText } from "@/components/themed-text";
 import { Button } from "@/components/ui/button";
 import { Palette, Radius, Spacing } from "@/constants/theme";
 import { linkPreviewQueryOptions } from "@/hooks/use-link-preview-query";
+import { resetToHome } from "@/utils/navigation";
 
 const CODE_LENGTH = 6;
 const CODE_SLOTS = Array.from({ length: CODE_LENGTH }, (_, i) => i);
@@ -53,7 +54,7 @@ export default function InviteCodeScreen() {
 
   return (
     <SafeAreaView style={styles.screen}>
-      <CompleteHeader onSkip={() => router.replace("/")} />
+      <CompleteHeader onSkip={() => resetToHome()} />
 
       <View style={styles.content}>
         <View style={styles.titleBlock}>
