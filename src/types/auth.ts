@@ -35,3 +35,9 @@ export interface ChangePasswordRequest {
   current_password: string;
   new_password: string;
 }
+
+// DELETE /me (회원 탈퇴). 성공 204 → 토큰 전부 삭제 후 로그인으로.
+// 비밀번호 불일치 409 CURRENT_PASSWORD_MISMATCH.
+export interface AccountDeletionRequest {
+  current_password: string;
+}

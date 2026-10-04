@@ -8,7 +8,7 @@ export const API_ENDPOINTS = {
     signup: "/auth/signup", // §4.1
   },
   me: {
-    base: "/me", // §4.4 GET
+    base: "/me", // §4.4 GET · DELETE(회원 탈퇴, 바디에 current_password)
     password: "/me/password", // §4.5 PATCH
   },
   household: {
