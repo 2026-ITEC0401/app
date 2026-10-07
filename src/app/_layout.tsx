@@ -7,6 +7,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { queryClient } from "@/api/query-client";
+import { Toast } from "@/components/ui/toast";
 
 // 스플래시는 index.tsx(게이트)가 진입 화면을 정한 뒤 직접 숨긴다.
 SplashScreen.preventAutoHideAsync();
@@ -33,6 +34,8 @@ export default function RootLayout() {
             {/* 라이트 모드 고정 — 바탕이 어두운 화면(시작·홈)만 개별로 light 를 올린다 */}
             <StatusBar style="dark" />
             <Stack screenOptions={{ headerShown: false }} />
+            {/* 하단 토스트. 어느 화면에서든 stores/toast.ts 의 showToast() 로 띄운다 */}
+            <Toast />
           </ThemeProvider>
         </QueryClientProvider>
       </SafeAreaProvider>
