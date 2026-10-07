@@ -11,17 +11,19 @@ import { NotificationBanner } from "@/components/home/notification-banner";
 import { RoomCard } from "@/components/home/room-card";
 import { ThemedText } from "@/components/themed-text";
 import { Palette, Radius, Spacing } from "@/constants/theme";
+import { useAlarmHistoryQuery } from "@/hooks/use-alarm-history-query";
 import { useCurrentHouseholdQuery } from "@/hooks/use-current-household-query";
 import { useDevicesQuery } from "@/hooks/use-devices-query";
 import { useHouseholdSocket } from "@/hooks/use-household-socket";
-import { useLatestAlarmQuery } from "@/hooks/use-latest-alarm-query";
 import { useUnreadCountQuery } from "@/hooks/use-unread-count-query";
 import { useHouseholdId } from "@/stores/session";
-import { type AlertWebData } from "@/types/alert";
+import { type AlertHistoryDay, type AlertWebData } from "@/types/alert";
 import { type RoomDevice } from "@/types/room";
 import { toWebDataFromList } from "@/utils/alert-mapper";
 
 const GRID_COLUMNS = 2;
+/** "실시간 소리 알림"에 보여줄 최대 개수 */
+const RECENT_ALERT_LIMIT = 3;
 
 /** 웹 grid-cols-2 — RN 에는 grid 가 없어 2개씩 행으로 묶는다 */
 function chunkIntoRows(devices: RoomDevice[]): RoomDevice[][] {
@@ -32,10 +34,19 @@ function chunkIntoRows(devices: RoomDevice[]): RoomDevice[][] {
   return rows;
 }
 
+/** 날짜별로 묶인 이력을 최신순 한 줄로 편다 (서버 정렬에 기대지 않고 time 으로 다시 정렬) */
+function flattenLatestFirst(days: AlertHistoryDay[]): AlertWebData[] {
+  return days
+    .flatMap((day) => day.alarms)
+    .sort((a, b) => b.time.localeCompare(a.time))
+    .map(toWebDataFromList);
+}
+
 /**
  * 홈 (웹 원본 pages/MainPage.tsx).
- * 기기 목록 · 미확인 개수 · 최근 알림 1건을 조회하고, 가구 소켓을 구독해
+ * 기기 목록 · 미확인 개수 · 최근 알림을 조회하고, 가구 소켓을 구독해
  * 실시간 알림은 목록 맨 앞 + 전체 화면 팝업으로, 기기 상태는 캐시 갱신으로 반영한다.
+ * 최근 알림은 웹의 latest 1건 대신 7일 이력(알람 탭과 같은 캐시)에서 최신 3건을 보여준다.
  * 홈 탭은 로그인 중 항상 마운트돼 있어 소켓도 여기서만 연다 (기기 화면들은 캐시를 공유).
  */
 export default function HomeScreen() {
@@ -43,7 +54,7 @@ export default function HomeScreen() {
   const householdQuery = useCurrentHouseholdQuery();
   const devicesQuery = useDevicesQuery(householdId);
   const unreadQuery = useUnreadCountQuery(householdId);
-  const latestQuery = useLatestAlarmQuery(householdId);
+  const historyQuery = useAlarmHistoryQuery(householdId);
 
   // 실시간(WS)으로 받은 알림. 최신순으로 앞에 쌓인다.
   const [realtimeAlerts, setRealtimeAlerts] = useState<AlertWebData[]>([]);
@@ -81,14 +92,14 @@ export default function HomeScreen() {
   const deviceRows = chunkIntoRows(devicesQuery.data?.devices ?? []);
   const unreadCount = unreadQuery.data?.unread_count ?? 0;
 
-  // 서버의 최근 알림 1건 뒤에 실시간 알림이 앞으로 쌓인다. 같은 알림이 둘 다에 있으면 한 번만.
-  const latest = latestQuery.data?.alarm
-    ? toWebDataFromList(latestQuery.data.alarm)
-    : null;
-  const alertList =
-    latest && !realtimeAlerts.some((a) => a.id === latest.id)
-      ? [...realtimeAlerts, latest]
-      : realtimeAlerts;
+  // 실시간 알림이 앞, 서버 이력이 뒤. 같은 알림이 둘 다에 있으면 한 번만. 최신 3건까지.
+  const historyAlerts = flattenLatestFirst(historyQuery.data?.days ?? []);
+  const alertList = [
+    ...realtimeAlerts,
+    ...historyAlerts.filter(
+      (alert) => !realtimeAlerts.some((a) => a.id === alert.id),
+    ),
+  ].slice(0, RECENT_ALERT_LIMIT);
 
   return (
     <SafeAreaView style={styles.screen} edges={["top"]}>
