@@ -43,7 +43,7 @@ export default function StartScreen() {
         />
         <Button
           label="회원가입"
-          variant="outline-light"
+          variant="light"
           onPress={() => router.push("/signup")}
         />
       </View>

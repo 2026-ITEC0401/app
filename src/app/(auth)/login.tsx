@@ -113,6 +113,26 @@ export default function LoginScreen() {
           onPress={handleSubmit}
           loading={loginMutation.isPending}
         />
+
+        {/* 세션 만료 등으로 뒤로갈 시작 화면이 없을 때를 위한 가입 진입로 (C 레퍼런스 login 하단과 같은 구성) */}
+        <View style={styles.switchRow}>
+          <ThemedText type="body02" color={Palette.gray[300]}>
+            계정이 없으신가요?
+          </ThemedText>
+          <Pressable
+            accessibilityRole="link"
+            hitSlop={Spacing.two}
+            onPress={() => router.replace("/signup")}
+          >
+            <ThemedText
+              type="label03"
+              color={Palette.gray[500]}
+              style={styles.switchLink}
+            >
+              회원가입
+            </ThemedText>
+          </Pressable>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -146,5 +166,14 @@ const styles = StyleSheet.create({
   },
   spacer: {
     flex: 1,
+  },
+  switchRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.two,
+  },
+  switchLink: {
+    textDecorationLine: "underline",
   },
 });

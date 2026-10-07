@@ -12,11 +12,17 @@ import { Palette, Radius, type TypographyToken } from "@/constants/theme";
 import { ThemedText } from "../themed-text";
 
 /**
- * 웹 원본 components/Button.tsx 의 variant 4종 + `outline-gray`.
+ * 웹 원본 components/Button.tsx 의 variant 4종 + `outline-gray` + `light`.
  * outline-gray 는 웹에서 모달 안에 직접 그리던 "취소/닫기" 버튼(테두리 gray-200, 글자 black).
+ * light 는 어두운 바탕(시작 화면) 위의 흰 배경 버튼 (웹에는 없던 변형). 글자색은 primary 와 같다.
  */
 export type ButtonVariant =
-  "primary" | "dark" | "outline-dark" | "outline-light" | "outline-gray";
+  | "primary"
+  | "dark"
+  | "outline-dark"
+  | "outline-light"
+  | "outline-gray"
+  | "light";
 
 /** large = 웹 h-14 (기본). small = 웹 모달 안의 h-12 버튼. */
 export type ButtonSize = "large" | "small";
@@ -55,6 +61,11 @@ const VARIANT_COLORS: Record<ButtonVariant, VariantColors> = {
     background: Palette.white,
     border: Palette.gray[200],
     text: Palette.black,
+  },
+  light: {
+    background: Palette.white,
+    border: "transparent",
+    text: Palette.gray[400],
   },
 };
 

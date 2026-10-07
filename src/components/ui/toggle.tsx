@@ -18,7 +18,8 @@ const KNOB_SIZE = 24;
 const KNOB_INSET = 4;
 const KNOB_TRAVEL = TRACK_WIDTH - KNOB_SIZE - KNOB_INSET * 2;
 const ANIMATION_DURATION = 200;
-const DISABLED_OPACITY = 0.4;
+/** 잠긴 토글(허브 연결 · member 조회 전용)은 상태색은 읽히게 살짝만 흐린다 */
+const DISABLED_OPACITY = 0.7;
 
 export type ToggleProps = {
   checked: boolean;
