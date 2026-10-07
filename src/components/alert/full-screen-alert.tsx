@@ -66,6 +66,8 @@ const TITLE_LETTER_SPACING = Typography.alert01.fontSize * 0.05;
 /** 웹 animate-text-blink: 0.8s 주기로 opacity 1 ↔ 0.3 */
 const BLINK_DURATION = 400;
 const BLINK_MIN_OPACITY = 0.3;
+/** 한 줄 유지를 위해 글자를 줄일 때의 하한 (웹은 가로 폭이 넓어 줄바꿈이 없었다) */
+const MIN_FONT_SCALE = 0.6;
 
 export type FullScreenAlertProps = {
   alertData?: AlertWebData;
@@ -118,8 +120,16 @@ export function FullScreenAlert({ alertData, onClose }: FullScreenAlertProps) {
             />
           </View>
 
+          {/* 소리 이름이 길면 50px 글자가 단어 중간에서 꺾인다 → 한 줄에 맞춰 글자를 줄인다 */}
           <BlinkingText>{sound} 감지</BlinkingText>
-          <ThemedText type="head01" color={Palette.white} style={styles.title}>
+          <ThemedText
+            type="head01"
+            color={Palette.white}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={MIN_FONT_SCALE}
+            style={styles.title}
+          >
             {config.title}
           </ThemedText>
 
@@ -129,7 +139,13 @@ export function FullScreenAlert({ alertData, onClose }: FullScreenAlertProps) {
               { backgroundColor: config.infoBackgroundColor },
             ]}
           >
-            <ThemedText type="head01" color={Palette.white}>
+            <ThemedText
+              type="head01"
+              color={Palette.white}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={MIN_FONT_SCALE}
+            >
               {location} / {display_time}
             </ThemedText>
           </View>
@@ -176,7 +192,12 @@ function BlinkingText({ children }: { children: React.ReactNode }) {
   }, [opacity]);
 
   return (
-    <Animated.Text style={[styles.blink, { opacity }]}>
+    <Animated.Text
+      numberOfLines={1}
+      adjustsFontSizeToFit
+      minimumFontScale={MIN_FONT_SCALE}
+      style={[styles.blink, { opacity }]}
+    >
       {children}
     </Animated.Text>
   );
