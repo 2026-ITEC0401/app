@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 import { useRouter } from "expo-router";
-import { ScrollView, StyleSheet, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { getApiErrorMessage } from "@/api/http-error";
@@ -15,17 +15,25 @@ import { useSignupMutation } from "@/hooks/use-signup-mutation";
 import type { SignupType } from "@/types/signup";
 
 export type SignupFormProps = {
+  /** 이전 화면에서 고른 가입 유형. 폼 안의 탭으로 바꿀 수 있어 초기값으로만 쓴다 */
   signupType: SignupType;
 };
 
+const SIGNUP_TABS: { value: SignupType; label: string }[] = [
+  { value: "new_household", label: "신규 가구" },
+  { value: "family_member", label: "가족 · 보호자" },
+];
+
 /**
  * 회원가입 폼 (웹 원본 pages/SignupFormPage.tsx). /signup/new 와 /signup/family 가 공유한다.
+ * 상단 탭으로 가입 유형을 바꿀 수 있다 (입력한 값은 유지, 라우트는 그대로).
  * POST /auth/signup 성공 시 토큰 저장(api/auth.ts) 후
  * 신규 가구 → 주소 등록 / 가족 → 초대 코드 로 이동한다.
  */
-export function SignupForm({ signupType }: SignupFormProps) {
+export function SignupForm({ signupType: initialSignupType }: SignupFormProps) {
   const router = useRouter();
   const signupMutation = useSignupMutation();
+  const [signupType, setSignupType] = useState<SignupType>(initialSignupType);
   const isNew = signupType === "new_household";
 
   const [name, setName] = useState("");
@@ -74,24 +82,28 @@ export function SignupForm({ signupType }: SignupFormProps) {
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
-        {/* 가입 유형 표시 (선택은 이전 화면에서 끝났으므로 눌리지 않는다) */}
+        {/* 가입 유형 탭. 이전 화면의 선택을 여기서 바꿀 수 있다 (가입 중엔 잠근다) */}
         <View style={styles.segmented}>
-          <View style={[styles.segment, isNew && styles.segmentActive]}>
-            <ThemedText
-              type="subtitle03"
-              color={isNew ? Palette.white : Palette.gray[300]}
-            >
-              신규 가구
-            </ThemedText>
-          </View>
-          <View style={[styles.segment, !isNew && styles.segmentActive]}>
-            <ThemedText
-              type="subtitle03"
-              color={isNew ? Palette.gray[300] : Palette.white}
-            >
-              가족 · 보호자
-            </ThemedText>
-          </View>
+          {SIGNUP_TABS.map((tab) => {
+            const selected = tab.value === signupType;
+            return (
+              <Pressable
+                key={tab.value}
+                accessibilityRole="tab"
+                accessibilityState={{ selected }}
+                disabled={signupMutation.isPending}
+                onPress={() => setSignupType(tab.value)}
+                style={[styles.segment, selected && styles.segmentActive]}
+              >
+                <ThemedText
+                  type="subtitle03"
+                  color={selected ? Palette.white : Palette.gray[300]}
+                >
+                  {tab.label}
+                </ThemedText>
+              </Pressable>
+            );
+          })}
         </View>
 
         <ThemedText type="body01" color={Palette.gray[300]}>
