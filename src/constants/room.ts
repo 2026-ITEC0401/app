@@ -23,10 +23,10 @@ export const deviceStatusMeta: Record<
   disabled_by_owner: { label: "연결 꺼짐", dotColor: Palette.gray[200] },
 };
 
-// 재연결 요청은 성공했지만 기기가 여전히 connected 가 아닐 때 보여줄 이유 안내
+// 재연결 요청은 성공했지만 기기가 여전히 connected 가 아닐 때 보여줄 이유 안내 (토스트 두 줄)
 export const reconnectNotice: Partial<Record<DeviceUiStatus, string>> = {
-  offline: "기기가 응답하지 않아요. 기기 전원과 네트워크를 확인해 주세요.",
+  offline: "기기가 응답하지 않아요.\n기기 전원과 네트워크를 확인해 주세요.",
   error:
-    "기기가 설정을 반영하지 못했어요. 기기 전원과 네트워크를 확인해 주세요.",
-  pending: "설정을 반영하는 중이에요. 잠시 후 다시 확인해 주세요.",
+    "기기가 설정을 반영하지 못했어요.\n기기 전원과 네트워크를 확인해 주세요.",
+  pending: "설정을 반영하는 중이에요.\n잠시 후 다시 확인해 주세요.",
 };

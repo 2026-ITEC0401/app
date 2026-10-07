@@ -20,6 +20,7 @@ import { useCurrentHouseholdQuery } from "@/hooks/use-current-household-query";
 import { useDevicesQuery } from "@/hooks/use-devices-query";
 import { useSetConnectionMutation } from "@/hooks/use-set-connection-mutation";
 import { useHouseholdId } from "@/stores/session";
+import { showToast } from "@/stores/toast";
 import { type RoomDevice } from "@/types/room";
 
 /** 웹 h-12 w-12 */
@@ -32,6 +33,7 @@ const DISABLED_OPACITY = 0.4;
  * 기기 관리 (웹 원본 pages/DeviceListPage.tsx).
  * GET /devices 목록 + owner 의 재연결(PATCH connection).
  * 실시간 상태(device.status_changed)는 홈이 연 소켓이 기기 목록 캐시에 써넣으므로 여기선 구독만 한다.
+ * 재연결 결과 안내(반영 중 · 오프라인 · 실패)는 목록에 남기지 않고 토스트로 잠깐 띄운다.
  */
 export default function DeviceListScreen() {
   const householdId = useHouseholdId();
@@ -39,17 +41,11 @@ export default function DeviceListScreen() {
   const devicesQuery = useDevicesQuery(householdId);
   const setConnectionMutation = useSetConnectionMutation();
   const [busyId, setBusyId] = useState<string | null>(null);
-  // 재연결 요청은 성공했지만 기기가 여전히 connected 가 아닐 때의 안내 (기기별).
-  // 요청 실패 문구도 같은 자리에 보여준다 (웹은 목록 전체를 에러로 바꿨다).
-  const [notice, setNotice] = useState<{ id: string; text: string } | null>(
-    null,
-  );
 
   // 응답 스키마 미정의 → 성공 후 재조회로 상태 확정 (WS로도 정합)
   const reconnect = async (device: RoomDevice) => {
     if (!householdId) return;
     setBusyId(device.device_id);
-    setNotice(null);
     try {
       await setConnectionMutation.mutateAsync({
         householdId,
@@ -62,12 +58,9 @@ export default function DeviceListScreen() {
         (d) => d.device_id === device.device_id,
       );
       const text = target && reconnectNotice[target.ui_status];
-      if (text) setNotice({ id: device.device_id, text });
+      if (text) showToast(text);
     } catch (e) {
-      setNotice({
-        id: device.device_id,
-        text: getApiErrorMessage(e, "재연결하지 못했어요."),
-      });
+      showToast(getApiErrorMessage(e, "재연결하지 못했어요."));
     } finally {
       setBusyId(null);
     }
@@ -91,9 +84,9 @@ export default function DeviceListScreen() {
             <DeviceRow
               key={device.device_id}
               device={device}
-              canControl={isOwner}
+              // 허브(Raspberry Pi)는 연결을 끄고 켤 수 없어 재연결 버튼도 두지 않는다
+              canControl={isOwner && device.device_type !== "hub"}
               busy={busyId === device.device_id}
-              notice={notice?.id === device.device_id ? notice.text : null}
               onReconnect={() => reconnect(device)}
             />
           ))}
@@ -107,17 +100,10 @@ interface DeviceRowProps {
   device: RoomDevice;
   canControl: boolean;
   busy: boolean;
-  notice: string | null;
   onReconnect: () => void;
 }
 
-function DeviceRow({
-  device,
-  canControl,
-  busy,
-  notice,
-  onReconnect,
-}: DeviceRowProps) {
+function DeviceRow({ device, canControl, busy, onReconnect }: DeviceRowProps) {
   const router = useRouter();
   const status = deviceStatusMeta[device.ui_status];
   const isConnected = device.ui_status === "connected";
@@ -152,14 +138,9 @@ function DeviceRow({
         <ThemedText type="body02" color={Palette.gray[300]}>
           {status.label}
         </ThemedText>
-        {notice ? (
-          <ThemedText type="body03" color={Palette.red[200]}>
-            {notice}
-          </ThemedText>
-        ) : null}
       </View>
 
-      {/* 재연결은 owner 전용. member는 조회만 (버튼 숨김) */}
+      {/* 재연결은 owner 전용 + 허브 제외. 그 외엔 조회만 (버튼 숨김) */}
       {isConnected || !canControl ? (
         <ChevronRight size={CHEVRON_SIZE} color={Palette.gray[200]} />
       ) : (
