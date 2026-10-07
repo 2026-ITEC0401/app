@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import { Pressable, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { LegalLinks } from "@/components/auth/legal-links";
 import { ThemedText } from "@/components/themed-text";
 import { Button } from "@/components/ui/button";
 import { ScreenHeader } from "@/components/ui/screen-header";
@@ -79,6 +80,9 @@ export default function SignupTypeScreen() {
             </ThemedText>
           </Pressable>
         </View>
+
+        {/* 로그인 화면과 같은 약관·처리방침 링크 */}
+        <LegalLinks />
       </View>
     </SafeAreaView>
   );
@@ -88,7 +92,8 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: Palette.background.base,
-    paddingBottom: Spacing.ten,
+    // 하단에 전환·약관 링크 두 줄이 더 있어 다른 인증 화면(ten)보다 좁게 둔다
+    paddingBottom: Spacing.six,
   },
   content: {
     flex: 1,

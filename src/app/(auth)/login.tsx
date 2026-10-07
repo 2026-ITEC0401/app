@@ -6,6 +6,7 @@ import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { getApiErrorMessage } from "@/api/http-error";
+import { LegalLinks } from "@/components/auth/legal-links";
 import { ThemedText } from "@/components/themed-text";
 import { Button } from "@/components/ui/button";
 import { HEADER_HEIGHT } from "@/components/ui/screen-header";
@@ -133,6 +134,9 @@ export default function LoginScreen() {
             </ThemedText>
           </Pressable>
         </View>
+
+        {/* 로그인 전에도 약관·처리방침을 볼 수 있게 (가입 유형 선택 화면과 공유) */}
+        <LegalLinks />
       </ScrollView>
     </SafeAreaView>
   );
@@ -146,7 +150,8 @@ const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
     paddingHorizontal: Spacing.five,
-    paddingBottom: Spacing.ten,
+    // 하단에 전환·약관 링크 두 줄이 더 있어 다른 인증 화면(ten)보다 좁게 둔다
+    paddingBottom: Spacing.six,
     gap: Spacing.six,
   },
   topBar: {

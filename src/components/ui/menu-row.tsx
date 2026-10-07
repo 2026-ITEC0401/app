@@ -48,11 +48,14 @@ export function MenuRow({ label, value, href }: MenuRowProps) {
 }
 
 const styles = StyleSheet.create({
+  // 꺾쇠 아이콘은 20px 박스 안에서 글리프가 가운데 7~8px 만 차지해 오른쪽이 더 비어 보인다.
+  // 그만큼 오른쪽 패딩을 줄여 눈에 보이는 좌우 여백을 맞춘다.
   row: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: Spacing.five,
+    paddingLeft: Spacing.five,
+    paddingRight: Spacing.three,
     paddingVertical: ROW_PADDING_VERTICAL,
   },
   // 웹의 hover:bg-gray-100
