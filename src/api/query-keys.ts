@@ -22,6 +22,11 @@ export const queryKeys = {
     all: ["device"] as const,
     list: (householdId: string) => ["device", "list", householdId] as const,
   },
+  deviceKit: {
+    all: ["deviceKit"] as const,
+    status: (householdId: string) =>
+      ["deviceKit", "status", householdId] as const,
+  },
   alarm: {
     all: ["alarm"] as const,
     latest: (householdId: string) => ["alarm", "latest", householdId] as const,

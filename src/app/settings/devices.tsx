@@ -7,6 +7,7 @@ import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { getApiErrorMessage } from "@/api/http-error";
+import { DeviceKitStatusCard } from "@/components/device-kit/device-kit-status-card";
 import { ThemedText } from "@/components/themed-text";
 import { CenteredMessage } from "@/components/ui/centered-message";
 import { ScreenHeader } from "@/components/ui/screen-header";
@@ -17,6 +18,7 @@ import {
 } from "@/constants/room";
 import { Palette, Radius, Shadow, Spacing } from "@/constants/theme";
 import { useCurrentHouseholdQuery } from "@/hooks/use-current-household-query";
+import { useDeviceKitQuery } from "@/hooks/use-device-kit-query";
 import { useDevicesQuery } from "@/hooks/use-devices-query";
 import { useSetConnectionMutation } from "@/hooks/use-set-connection-mutation";
 import { useHouseholdId } from "@/stores/session";
@@ -34,13 +36,18 @@ const DISABLED_OPACITY = 0.4;
  * GET /devices 목록 + owner 의 재연결(PATCH connection).
  * 실시간 상태(device.status_changed)는 홈이 연 소켓이 기기 목록 캐시에 써넣으므로 여기선 구독만 한다.
  * 재연결 결과 안내(반영 중 · 오프라인 · 실패)는 목록에 남기지 않고 토스트로 잠깐 띄운다.
+ * 키트 미등록이면 기기 목록 대신 등록 안내 카드만, 등록 완료면 목록 위에 상태 카드가 붙는다
+ * (키트 등록 상태와 기기 연결 상태는 별개로 취급).
  */
 export default function DeviceListScreen() {
   const householdId = useHouseholdId();
   const { isOwner } = useCurrentHouseholdQuery();
   const devicesQuery = useDevicesQuery(householdId);
+  const kitQuery = useDeviceKitQuery(householdId);
   const setConnectionMutation = useSetConnectionMutation();
   const [busyId, setBusyId] = useState<string | null>(null);
+  // 키트 미등록이면 보여줄 기기 연결 상태가 없다 → 기기 목록은 숨기고 등록 카드만
+  const kitUnregistered = kitQuery.data?.status === "unregistered";
 
   // 응답 스키마 미정의 → 성공 후 재조회로 상태 확정 (WS로도 정합)
   const reconnect = async (device: RoomDevice) => {
@@ -72,14 +79,19 @@ export default function DeviceListScreen() {
 
       {!householdId ? (
         <CenteredMessage inline>가구 연동이 필요합니다.</CenteredMessage>
-      ) : devicesQuery.isLoading ? (
+      ) : devicesQuery.isLoading || kitQuery.isLoading ? (
         <CenteredMessage inline>불러오는 중…</CenteredMessage>
+      ) : kitUnregistered ? (
+        <View style={styles.kitOnly}>
+          <DeviceKitStatusCard householdId={householdId} />
+        </View>
       ) : devicesQuery.isError ? (
         <CenteredMessage inline tone="error">
           {getApiErrorMessage(devicesQuery.error, "기기를 불러오지 못했어요.")}
         </CenteredMessage>
       ) : (
         <ScrollView contentContainerStyle={styles.content}>
+          <DeviceKitStatusCard householdId={householdId} />
           {(devicesQuery.data?.devices ?? []).map((device) => (
             <DeviceRow
               key={device.device_id}
@@ -169,6 +181,12 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
     paddingHorizontal: Spacing.five,
     paddingVertical: Spacing.four,
+  },
+  // 등록 카드 하나를 세로 가운데에
+  kitOnly: {
+    flex: 1,
+    justifyContent: "center",
+    paddingHorizontal: Spacing.five,
   },
   row: {
     flexDirection: "row",

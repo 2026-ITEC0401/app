@@ -22,6 +22,13 @@ export function formatAlertDayLabel(
   return `${month}월 ${day}일 (${weekday})`;
 }
 
+/** ISO 시각 → "2026.10.06" (기기 시간대 기준). 가입일 · 키트 등록일 같은 날짜 표시용. */
+export function formatDateDots(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "-";
+  return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, "0")}.${String(date.getDate()).padStart(2, "0")}`;
+}
+
 /** 24시 → "오전 08:30" 꼴. 웹의 Intl.DateTimeFormat(ko-KR, hour12) 출력과 같다. */
 export function formatClock(hour24: number, minute: number): string {
   const hour12 = hour24 % 12 || 12;

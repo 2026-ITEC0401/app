@@ -34,6 +34,14 @@ export const API_ENDPOINTS = {
     settings: (householdId: string, deviceId: string) =>
       `/households/${householdId}/devices/${deviceId}/settings`, // §6.3 PATCH
   },
+  // 기기 키트 등록 (DEVICE_KIT_API_SPEC). 신규 API 배포 전에는 경로가 없다 (404).
+  deviceKit: {
+    status: (householdId: string) => `/households/${householdId}/device-kit`, // GET
+    claimPreview: (householdId: string) =>
+      `/households/${householdId}/device-kit/claim/preview`, // POST (owner, DB 변경 없음)
+    claim: (householdId: string) =>
+      `/households/${householdId}/device-kit/claim`, // POST (owner, 멱등)
+  },
   alarm: {
     latest: (householdId: string) => `/households/${householdId}/alarms/latest`, // §7.2
     history: (householdId: string) =>
