@@ -1,5 +1,7 @@
+import { useState } from "react";
+
 import { useRouter } from "expo-router";
-import { User } from "lucide-react-native";
+import { ChevronRight, User } from "lucide-react-native";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -7,6 +9,9 @@ import { ThemedText } from "@/components/themed-text";
 import { MenuGroup } from "@/components/ui/menu-group";
 import { MenuRow } from "@/components/ui/menu-row";
 import { ScreenHeader } from "@/components/ui/screen-header";
+import { TermContentModal } from "@/components/ui/term-content-modal";
+import { DATA_SOURCE_TITLE, DATA_SOURCES } from "@/constants/attribution";
+import type { TermContentCode } from "@/constants/terms";
 import { Palette, Radius, Shadow, Spacing } from "@/constants/theme";
 import { useAlarmSoundEnabled } from "@/hooks/use-alarm-sound-enabled";
 import { useCurrentHouseholdQuery } from "@/hooks/use-current-household-query";
@@ -19,6 +24,13 @@ import { resetToStart } from "@/utils/navigation";
 /** 웹 h-14 w-14 */
 const AVATAR_SIZE = 56;
 const AVATAR_ICON_SIZE = 28;
+const FOOTER_CHEVRON_SIZE = 16;
+
+/** 하단 법적 고지 링크 (C 레퍼런스 my.tsx 하단 구성). 전문은 모달로 연다 */
+const LEGAL_LINKS: { code: TermContentCode; label: string }[] = [
+  { code: "TERMS_OF_SERVICE", label: "서비스 이용약관" },
+  { code: "PRIVACY_POLICY", label: "개인정보 처리방침" },
+];
 
 /**
  * 설정 탭 (웹 원본 pages/SettingsPage.tsx).
@@ -32,6 +44,8 @@ export default function SettingsScreen() {
   const devicesQuery = useDevicesQuery(householdId);
   const { enabled: soundEnabled } = useAlarmSoundEnabled();
   const logoutMutation = useLogoutMutation();
+  // 하단 링크로 여는 약관 전문 (null 이면 닫힘)
+  const [termModal, setTermModal] = useState<TermContentCode | null>(null);
 
   // 저장소를 아직 못 읽었으면 빈 값 (웹은 동기 읽기라 항상 값이 있었다)
   const alarmSoundLabel =
@@ -92,11 +106,7 @@ export default function SettingsScreen() {
             value={deviceValue}
             href="/settings/devices"
           />
-          <MenuRow
-            label="소리 설정"
-            value="긴급 4 · 일반 3"
-            href="/settings/sound"
-          />
+          <MenuRow label="소리 설정" href="/settings/sound" />
         </MenuGroup>
 
         <MenuGroup>
@@ -105,34 +115,89 @@ export default function SettingsScreen() {
           <MenuRow label="개인정보 조회" href="/settings/profile" />
         </MenuGroup>
 
-        <Pressable
-          accessibilityRole="button"
-          onPress={handleLogout}
-          style={({ pressed }) => [
-            styles.logout,
-            pressed && styles.logoutPressed,
-          ]}
-        >
-          <ThemedText type="body02" color={Palette.gray[300]}>
-            로그아웃
-          </ThemedText>
-        </Pressable>
+        {/* 로그아웃 · 회원 탈퇴 한 줄 (C 레퍼런스 my.tsx 의 accountActions 구성).
+            탈퇴는 비밀번호 확인과 owner 경고가 필요해 전용 화면으로 보낸다 */}
+        <View style={styles.accountActions}>
+          <Pressable
+            accessibilityRole="button"
+            hitSlop={Spacing.two}
+            onPress={handleLogout}
+            style={({ pressed }) => pressed && styles.pressed}
+          >
+            <ThemedText type="body02" color={Palette.gray[300]}>
+              로그아웃
+            </ThemedText>
+          </Pressable>
+          <View style={styles.accountActionsDivider} />
+          <Pressable
+            accessibilityRole="button"
+            hitSlop={Spacing.two}
+            onPress={() => router.push("/settings/withdraw")}
+            style={({ pressed }) => pressed && styles.pressed}
+          >
+            <ThemedText type="body02" color={Palette.gray[300]}>
+              회원 탈퇴
+            </ThemedText>
+          </Pressable>
+        </View>
 
-        {/* 탈퇴는 비밀번호 확인과 owner 경고가 필요해 전용 화면으로 보낸다 */}
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => router.push("/settings/withdraw")}
-          style={({ pressed }) => [
-            styles.withdraw,
-            pressed && styles.logoutPressed,
-          ]}
-        >
-          <ThemedText type="body03" color={Palette.gray[300]}>
-            회원 탈퇴
-          </ThemedText>
-        </Pressable>
+        {/* 법적 고지 · 데이터 출처 (C 레퍼런스 my.tsx 의 footer) */}
+        <View style={styles.footer}>
+          {LEGAL_LINKS.map((item) => (
+            <FooterLink
+              key={item.code}
+              label={item.label}
+              onPress={() => setTermModal(item.code)}
+            />
+          ))}
+          <FooterLink
+            label="오픈소스 라이선스"
+            onPress={() => router.push("/settings/licenses")}
+          />
+
+          <View style={styles.footerSources}>
+            <ThemedText type="label06" color={Palette.gray[300]}>
+              {DATA_SOURCE_TITLE}
+            </ThemedText>
+            {DATA_SOURCES.map((item) => (
+              <ThemedText
+                key={item.label}
+                type="body03"
+                color={Palette.gray[200]}
+              >
+                {item.label} — {item.source}
+              </ThemedText>
+            ))}
+          </View>
+        </View>
       </ScrollView>
+
+      <TermContentModal code={termModal} onClose={() => setTermModal(null)} />
     </SafeAreaView>
+  );
+}
+
+/** 푸터 한 줄 링크 (라벨 + 꺾쇠) */
+function FooterLink({
+  label,
+  onPress,
+}: {
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${label} 보기`}
+      hitSlop={Spacing.two}
+      onPress={onPress}
+      style={({ pressed }) => [styles.footerLink, pressed && styles.pressed]}
+    >
+      <ThemedText type="label04" color={Palette.gray[300]}>
+        {label}
+      </ThemedText>
+      <ChevronRight size={FOOTER_CHEVRON_SIZE} color={Palette.gray[200]} />
+    </Pressable>
   );
 }
 
@@ -168,15 +233,34 @@ const styles = StyleSheet.create({
   profileText: {
     gap: Spacing.one,
   },
-  logout: {
-    alignSelf: "center",
+  // 위(메뉴 그룹)와 아래(푸터) 간격이 같도록 양쪽 다 content gap + two
+  accountActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.four,
     marginTop: Spacing.two,
   },
-  logoutPressed: {
+  // 두 글자 높이(body02 lineHeight 22)에 맞춘 세로 구분선
+  accountActionsDivider: {
+    width: 1,
+    height: Spacing.three,
+    backgroundColor: Palette.gray[200],
+  },
+  pressed: {
     opacity: 0.6,
   },
-  withdraw: {
-    alignSelf: "center",
-    marginTop: Spacing.three,
+  footer: {
+    gap: Spacing.two,
+    marginTop: Spacing.two,
+  },
+  footerLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.half,
+  },
+  footerSources: {
+    gap: Spacing.half,
+    marginTop: Spacing.two,
   },
 });

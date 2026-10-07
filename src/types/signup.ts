@@ -16,4 +16,6 @@ export interface SignupRequest {
   household_name?: string; // new_household일 때만
   terms_service_agreed: boolean;
   privacy_agreed: boolean;
+  // 만 14세 이상 확인 (개인정보 처리방침 제11조). 백엔드에 추가 요청한 필드 — false 면 422.
+  age_over_14_agreed: boolean;
 }

@@ -7,7 +7,7 @@ import {
   type ViewStyle,
 } from "react-native";
 
-import { Palette, Spacing } from "@/constants/theme";
+import { Palette, Spacing, type TypographyToken } from "@/constants/theme";
 
 import { ThemedText } from "../themed-text";
 
@@ -21,11 +21,27 @@ export type CheckboxProps = {
   label: string;
   checked: boolean;
   onChange: (next: boolean) => void;
+  /** 라벨 글꼴. 전체 동의처럼 강조할 때 subtitle 계열로 */
+  labelType?: TypographyToken;
+  /** 오른쪽 끝 보조 액션 (예: 약관 "보기"). 누르면 체크는 바뀌지 않는다 */
+  moreLabel?: string;
+  onPressMore?: () => void;
   style?: StyleProp<ViewStyle>;
 };
 
-/** 약관 동의 체크박스 (웹 원본 pages/SignupFormPage.tsx 의 role="checkbox" 버튼) */
-export function Checkbox({ label, checked, onChange, style }: CheckboxProps) {
+/**
+ * 약관 동의 체크박스 (웹 원본 pages/SignupFormPage.tsx 의 role="checkbox" 버튼).
+ * 오른쪽 "보기" 액션은 C 레퍼런스 가입 화면의 약관 전문 보기 구성을 따른다.
+ */
+export function Checkbox({
+  label,
+  checked,
+  onChange,
+  labelType = "body02",
+  moreLabel,
+  onPressMore,
+  style,
+}: CheckboxProps) {
   return (
     <Pressable
       accessibilityRole="checkbox"
@@ -38,9 +54,30 @@ export function Checkbox({ label, checked, onChange, style }: CheckboxProps) {
           <Check size={CHECK_ICON_SIZE} color={Palette.white} />
         ) : null}
       </View>
-      <ThemedText type="body02" color={Palette.gray[500]} style={styles.label}>
+      <ThemedText
+        type={labelType}
+        color={Palette.gray[500]}
+        style={styles.label}
+      >
         {label}
       </ThemedText>
+      {moreLabel && onPressMore ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${label} ${moreLabel}`}
+          hitSlop={Spacing.two}
+          onPress={onPressMore}
+          style={({ pressed }) => [styles.more, pressed && styles.morePressed]}
+        >
+          <ThemedText
+            type="label04"
+            color={Palette.gray[300]}
+            style={styles.moreText}
+          >
+            {moreLabel}
+          </ThemedText>
+        </Pressable>
+      ) : null}
     </Pressable>
   );
 }
@@ -68,6 +105,15 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.white,
   },
   label: {
-    flexShrink: 1,
+    flex: 1,
+  },
+  more: {
+    flexShrink: 0,
+  },
+  morePressed: {
+    opacity: 0.6,
+  },
+  moreText: {
+    textDecorationLine: "underline",
   },
 });
