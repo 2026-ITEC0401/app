@@ -39,8 +39,32 @@
 - `expo lint` 대신 **raw 도구(eslint/tsc/prettier)를 직접 호출**합니다.
   `expo lint`는 `app.config.ts`를 평가하므로 `.env` 값에 의존할 수 있는데,
   CI엔 `.env`가 없으므로 secret 없이 통과시키기 위함.
-- 네이티브 빌드는 무겁고 secret이 필요해서 CI에서 돌리지 않습니다. (필요 시 EAS Build 워크플로우 별도 추가)
+- 네이티브 빌드는 무겁고 secret이 필요해서 CI에서 돌리지 않습니다. 배포 빌드는 아래 EAS Build 를 **수동**으로 돌립니다.
 - 연속 푸시 시 이전 실행은 자동 취소(concurrency)해 러너를 아낍니다.
+
+---
+
+## EAS Build (수동, Android APK)
+
+| 항목 | 값                                                                       |
+| ---- | ------------------------------------------------------------------------ |
+| 설정 | `eas.json` (development · preview · production 프로필, 전부 APK)         |
+| 계정 | `app.config.ts` 의 `owner` 조직, 프로젝트 ID는 `extra.eas.projectId`     |
+| 버전 | `appVersionSource: "local"` — `app.config.ts` 의 `version`·`versionCode` |
+| 서명 | Android 키스토어는 EAS 가 생성·보관 (첫 빌드 때 생성 여부를 묻는다)      |
+
+원스토어 배포라 AAB 가 아닌 **APK** 로만 빌드합니다. `production` 프로필은 EAS 의 `production` 환경변수를 씁니다.
+
+```bash
+npx eas-cli login                        # Expo 계정 로그인 (최초 1회)
+npx eas-cli env:create --environment production --name EXPO_PUBLIC_API_BASE_URL --value <API 주소> --visibility plaintext
+npx eas-cli env:create --environment production --name EXPO_PUBLIC_WS_BASE_URL --value <WS 주소> --visibility plaintext
+npx eas-cli build -p android --profile preview      # 내부 테스트용 APK
+npx eas-cli build -p android --profile production   # 스토어 제출용 APK
+```
+
+- `EXPO_PUBLIC_*` 값은 `.env` 가 아니라 **EAS 환경변수**에서 읽습니다. 로컬 `.env` 는 커밋되지 않아 클라우드 빌드에 포함되지 않기 때문입니다. (`eas env:list` 로 확인)
+- 스토어 업로드마다 `android.versionCode` 를 1씩 올립니다 (같은 값 재업로드 불가). 릴리즈 흐름은 [convention.md §6](./convention.md#6-릴리즈-develop--main) 참고.
 
 ---
 
