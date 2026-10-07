@@ -14,6 +14,7 @@ import { useDevicesQuery } from "@/hooks/use-devices-query";
 import { useLogoutMutation } from "@/hooks/use-logout-mutation";
 import { useMeQuery } from "@/hooks/use-me-query";
 import { useHouseholdId } from "@/stores/session";
+import { resetToStart } from "@/utils/navigation";
 
 /** 웹 h-14 w-14 */
 const AVATAR_SIZE = 56;
@@ -50,11 +51,12 @@ export default function SettingsScreen() {
     : "";
   const householdName = householdQuery.data?.household?.name;
 
-  // POST /auth/logout — 서버 폐기가 실패해도 로컬 세션은 정리되므로 결과와 무관하게 로그인으로 보낸다
+  // POST /auth/logout — 서버 폐기가 실패해도 로컬 세션은 정리되므로 결과와 무관하게
+  // 시작 화면(로그인/회원가입 선택)으로 보낸다. 스택을 비워 뒤로가기로 탭에 돌아오지 않게 한다.
   const handleLogout = () => {
     if (logoutMutation.isPending) return;
     logoutMutation.mutate(undefined, {
-      onSettled: () => router.replace("/login"),
+      onSettled: () => resetToStart(),
     });
   };
 

@@ -1,6 +1,5 @@
 import { useState } from "react";
 
-import { useRouter } from "expo-router";
 import { Alert, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -13,6 +12,7 @@ import { TextField } from "@/components/ui/text-field";
 import { Palette, Radius, Spacing } from "@/constants/theme";
 import { useCurrentHouseholdQuery } from "@/hooks/use-current-household-query";
 import { useDeleteAccountMutation } from "@/hooks/use-delete-account-mutation";
+import { resetToStart } from "@/utils/navigation";
 
 const TITLE = "회원 탈퇴";
 
@@ -24,7 +24,6 @@ const TITLE = "회원 탈퇴";
  * owner 에게는 경고 문구 + 확인 체크 + 최종 Alert 의 3단계로 확인받는다.
  */
 export default function WithdrawScreen() {
-  const router = useRouter();
   const { isOwner, isLoading: roleLoading } = useCurrentHouseholdQuery();
   const deleteAccountMutation = useDeleteAccountMutation();
   const [password, setPassword] = useState("");
@@ -38,8 +37,8 @@ export default function WithdrawScreen() {
     setError(null);
     try {
       await deleteAccountMutation.mutateAsync({ current_password: password });
-      // 성공(204) → api/me.ts 가 토큰·세션을 지웠다. 뒤로 못 돌아가게 replace.
-      router.replace("/login");
+      // 성공(204) → api/me.ts 가 토큰·세션을 지웠다. 스택을 비우고 시작 화면으로.
+      resetToStart();
     } catch (e) {
       if (
         e instanceof ApiHttpError &&

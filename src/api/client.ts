@@ -1,11 +1,11 @@
 import axios, { type InternalAxiosRequestConfig } from "axios";
-import { router } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 
 import { API_ENDPOINTS } from "@/api/endpoints";
 import { ApiHttpError, toApiHttpError } from "@/api/http-error";
 import { clearSession } from "@/stores/session";
 import type { AuthTokens } from "@/types/auth";
+import { resetTo } from "@/utils/navigation";
 
 /**
  * [환경변수] Expo 는 번들 타임에 EXPO_PUBLIC_ 접두사가 붙은 값만 문자열로 치환한다.
@@ -115,7 +115,8 @@ apiClient.interceptors.response.use(
       } catch {
         refreshPromise = null;
         await Promise.all([clearTokens(), clearSession()]);
-        router.replace("/login");
+        // 스택을 비우고 로그인으로. replace 만 하면 뒤로가기로 인증이 필요한 화면에 되돌아간다
+        resetTo("/login");
         return Promise.reject(
           new ApiHttpError(401, {
             code: "UNAUTHORIZED",

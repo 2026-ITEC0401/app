@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 import { useRouter } from "expo-router";
-import { StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ThemedText } from "@/components/themed-text";
@@ -59,6 +59,26 @@ export default function SignupTypeScreen() {
             )
           }
         />
+
+        {/* 로그인 화면의 "회원가입" 과 짝. 두 화면을 서로 오갈 수 있게 한다 */}
+        <View style={styles.switchRow}>
+          <ThemedText type="body02" color={Palette.gray[300]}>
+            이미 계정이 있으신가요?
+          </ThemedText>
+          <Pressable
+            accessibilityRole="link"
+            hitSlop={Spacing.two}
+            onPress={() => router.replace("/login")}
+          >
+            <ThemedText
+              type="label03"
+              color={Palette.gray[500]}
+              style={styles.switchLink}
+            >
+              로그인
+            </ThemedText>
+          </Pressable>
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -84,5 +104,14 @@ const styles = StyleSheet.create({
   },
   spacer: {
     flex: 1,
+  },
+  switchRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.two,
+  },
+  switchLink: {
+    textDecorationLine: "underline",
   },
 });
