@@ -5,6 +5,7 @@ import {
   setTokens,
 } from "@/api/client";
 import { API_ENDPOINTS } from "@/api/endpoints";
+import { clearDeviceKitDraft } from "@/stores/device-kit-claim";
 import { clearSession, setHouseholdId } from "@/stores/session";
 import type { LoginRequest, LoginResponse } from "@/types/auth";
 import type { SignupRequest, SignupResponse } from "@/types/signup";
@@ -54,7 +55,11 @@ export async function logout(): Promise<void> {
   }
 }
 
-/** 토큰 + 가구 세션 일괄 정리 (웹 원본 lib/auth.ts clearAuth). 비밀번호 변경 후 재로그인 유도 등. */
+/**
+ * 토큰 + 가구 세션 일괄 정리 (웹 원본 lib/auth.ts clearAuth). 비밀번호 변경 후 재로그인 유도 등.
+ * 입력 중이던 키트 등록 코드도 메모리에서 지운다 (명세: 로그아웃 시 제거).
+ */
 export async function clearAuth(): Promise<void> {
+  clearDeviceKitDraft();
   await Promise.all([clearTokens(), clearSession()]);
 }

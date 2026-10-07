@@ -21,6 +21,7 @@ SplashScreen.preventAutoHideAsync();
  *   index                 게이트 → /start
  *   (auth)/start·login    시작 · 로그인
  *   (auth)/signup/*       가입 유형 · 폼(new/family) · 초대 코드 · 가구 연동 · 주소
+ *   device-kit/*          기기 키트 등록 (입력 · 확인 · 결과) — 가입 직후와 설정 › 기기 관리에서 진입
  *   (main)/*              하단 탭 (알람 · 홈 · 설정)
  *   alerts/[id]           알림 상세
  *   settings/*            설정 하위 (기기 · 기기 상세 · 가족 · 알림 · 소리 · 비밀번호 · 개인정보)

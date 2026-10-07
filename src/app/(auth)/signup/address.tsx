@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { useRouter } from "expo-router";
 import { Search } from "lucide-react-native";
 import {
   Pressable,
@@ -20,7 +21,6 @@ import { useAddressSearchMutation } from "@/hooks/use-address-search-mutation";
 import { useUpdateEmergencyAddressMutation } from "@/hooks/use-update-emergency-address-mutation";
 import { useHouseholdId } from "@/stores/session";
 import { type AddressSearchItem } from "@/types/household";
-import { resetToHome } from "@/utils/navigation";
 
 /** 웹 h-15 */
 const SEARCH_BOX_HEIGHT = 60;
@@ -36,8 +36,10 @@ const TAG_RADIUS = 6;
 /**
  * 집 주소 등록 (웹 원본 pages/HouseholdAddressPage.tsx).
  * §5.9 도로명주소 검색 → §5.8 긴급 주소 등록 (owner 전용).
+ * 등록하거나 건너뛰면 기기 키트 등록으로 이어진다 (키트 명세 "프론트 처리 순서" 1·2항). 거기서도 건너뛸 수 있다.
  */
 export default function HouseholdAddressScreen() {
+  const router = useRouter();
   const householdId = useHouseholdId();
   const searchMutation = useAddressSearchMutation();
   const registerMutation = useUpdateEmergencyAddressMutation();
@@ -47,6 +49,11 @@ export default function HouseholdAddressScreen() {
   const [detail, setDetail] = useState("");
   const [searched, setSearched] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // 주소 단계가 끝나면 키트 등록으로. 계정은 이미 만들어졌으므로 replace 로 이 화면에 돌아오지 않게 한다
+  const goToDeviceKit = () => {
+    router.replace({ pathname: "/device-kit", params: { from: "signup" } });
+  };
 
   const handleSearch = async () => {
     setSelected(null);
@@ -79,7 +86,7 @@ export default function HouseholdAddressScreen() {
           detail_source: "manual",
         },
       });
-      resetToHome();
+      goToDeviceKit();
     } catch (e) {
       setError(getApiErrorMessage(e, "주소 등록에 실패했어요."));
     }
@@ -87,7 +94,7 @@ export default function HouseholdAddressScreen() {
 
   return (
     <SafeAreaView style={styles.screen}>
-      <CompleteHeader onSkip={() => resetToHome()} />
+      <CompleteHeader onSkip={goToDeviceKit} />
 
       <ScrollView
         contentContainerStyle={styles.content}

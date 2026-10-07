@@ -7,12 +7,14 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { AlertCard } from "@/components/alert/alert-card";
 import { FullScreenAlert } from "@/components/alert/full-screen-alert";
 import { EmptyHouseholdView } from "@/components/home/empty-household-view";
+import { EmptyKitView } from "@/components/home/empty-kit-view";
 import { NotificationBanner } from "@/components/home/notification-banner";
 import { RoomCard } from "@/components/home/room-card";
 import { ThemedText } from "@/components/themed-text";
 import { Palette, Radius, Spacing } from "@/constants/theme";
 import { useAlarmHistoryQuery } from "@/hooks/use-alarm-history-query";
 import { useCurrentHouseholdQuery } from "@/hooks/use-current-household-query";
+import { useDeviceKitQuery } from "@/hooks/use-device-kit-query";
 import { useDevicesQuery } from "@/hooks/use-devices-query";
 import { useHouseholdSocket } from "@/hooks/use-household-socket";
 import { useUnreadCountQuery } from "@/hooks/use-unread-count-query";
@@ -52,6 +54,7 @@ function flattenLatestFirst(days: AlertHistoryDay[]): AlertWebData[] {
 export default function HomeScreen() {
   const householdId = useHouseholdId();
   const householdQuery = useCurrentHouseholdQuery();
+  const kitQuery = useDeviceKitQuery(householdId);
   const devicesQuery = useDevicesQuery(householdId);
   const unreadQuery = useUnreadCountQuery(householdId);
   const historyQuery = useAlarmHistoryQuery(householdId);
@@ -69,8 +72,8 @@ export default function HomeScreen() {
     },
   });
 
-  // 가구 상태를 확인하기 전에는 빈 상태 카드가 깜빡이지 않도록 바탕만 그린다 (웹은 null)
-  if (householdQuery.isLoading) {
+  // 가구 · 키트 상태를 확인하기 전에는 빈 상태 카드가 깜빡이지 않도록 바탕만 그린다 (웹은 null)
+  if (householdQuery.isLoading || kitQuery.isLoading) {
     return (
       <SafeAreaView style={styles.screen} edges={["top"]}>
         <StatusBar style="light" />
@@ -87,6 +90,10 @@ export default function HomeScreen() {
   // owner 인데 주소 미등록
   if (household?.onboarding?.next_action === "register_emergency_address") {
     return <EmptyHouseholdView variant="no-address" />;
+  }
+  // 키트 미등록 — 보여줄 기기 연결 상태가 없으므로 등록 안내 카드만 (조회 실패 · 기존 가구는 평소 홈)
+  if (householdId && kitQuery.data?.status === "unregistered") {
+    return <EmptyKitView householdId={householdId} />;
   }
 
   const deviceRows = chunkIntoRows(devicesQuery.data?.devices ?? []);
