@@ -87,10 +87,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ],
   // EAS 프로젝트 식별자. `eas init` 이 발급하며, 동적 config 라 자동 기입이 안 돼 수동으로 넣는다.
   // 이 값이 있어야 eas build 가 이 프로젝트로 연결된다.
-  // TODO: `npx eas-cli init` 실행 후 발급된 projectId 로 교체
   extra: {
     eas: {
-      projectId: "",
+      projectId: "190fe640-2dd1-4f41-ab76-9d05fd8a5317",
     },
   },
   experiments: {
