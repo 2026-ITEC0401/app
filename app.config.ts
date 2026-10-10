@@ -1,5 +1,9 @@
 import type { ConfigContext, ExpoConfig } from "expo/config";
 
+// 스플래시 배경색을 JS 쪽 디자인 토큰과 한 소스로 묶는다.
+// (@/ alias는 Metro 전용이라 설정 파일에서는 상대경로로 가져와야 한다)
+import { Palette } from "./src/constants/palette.ts";
+
 /**
  * 네이티브(android/, ios/) 설정의 유일한 소스 오브 트루스.
  *
@@ -12,12 +16,15 @@ import type { ConfigContext, ExpoConfig } from "expo/config";
  */
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
-  // TODO: 스토어 등록 시 앱 이름·slug·scheme 확정
+  // EAS 프로젝트가 속한 Expo 계정(팀 organization). eas build/submit 가 이 계정으로 연결된다.
+  owner: "nyoengs-team",
   name: "Hearo",
   slug: "hearo",
-  version: "0.1.0",
+  // 사용자에게 보이는 표기. package.json 의 version 과 같이 올린다 (docs/convention.md §6-2)
+  version: "1.0.0",
   orientation: "portrait",
-  // TODO: 앱 아이콘(./assets/images/icon.png) 준비 후 `icon` 추가
+  // 스토어·iOS 용 정사각형 아이콘 (1024×1024, 배경 gray[500] 포함)
+  icon: "./assets/images/icon.png",
   scheme: "hearo",
   // [라이트 모드 고정] 디자인 토큰이 라이트 한 벌뿐이라 다크 팔레트를 만들지 않는다.
   // "automatic"으로 두면 OS가 다크일 때 네이티브 헤더/탭바만 검게 변해서
@@ -27,17 +34,29 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   // SDK 57 / RN 0.86은 New Architecture(Fabric)만 지원한다. newArchEnabled 키는 제거됐다.
 
   android: {
-    // TODO: 스토어 등록 시 실제 패키지명으로 교체
-    package: "com.example.hearo",
+    // 스토어 등록 후에는 바꿀 수 없다.
+    package: "com.hearo.app",
+    // 스토어 업로드마다 1씩 올린다 (같은 값으로 재업로드 불가). eas.json 의 appVersionSource 가
+    // "local" 이라 여기 적힌 값이 그대로 빌드에 들어간다.
     versionCode: 1,
+    // 안드로이드는 이 아이콘을 제조사별 마스크(원·스퀘어클 등)로 잘라내므로
+    // 심볼만 투명 배경 위에 안전 영역(가운데 약 62%) 안으로 넣은 전경 이미지를 따로 쓴다.
+    // icon-foreground.png 는 디자인 원본(심볼 PNG)에서 PIL 로 생성 — 심볼이 바뀌면 다시 만든다.
+    adaptiveIcon: {
+      backgroundColor: Palette.gray[500],
+      foregroundImage: "./assets/images/icon-foreground.png",
+    },
     predictiveBackGestureEnabled: false,
   },
   ios: {
-    // TODO: 스토어 등록 시 실제 번들 ID로 교체
-    bundleIdentifier: "com.example.hearo",
+    // iOS 빌드는 현재 범위 밖. 패키지명과 맞춰만 둔다.
+    bundleIdentifier: "com.hearo.app",
   },
   plugins: [
     "expo-router",
+    // 토큰·가구 식별자·로컬 설정 저장소. `npx expo install` 은 동적 설정(app.config.ts)에
+    // 자동으로 못 쓰고 "Cannot automatically write to dynamic config" 경고만 내므로 직접 적는다.
+    "expo-secure-store",
     // Pretendard를 빌드 타임에 네이티브로 임베드한다.
     // useFonts() 런타임 로딩과 달리 첫 프레임부터 적용돼서 폰트가 깜빡이지 않는다.
     //
@@ -58,17 +77,21 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     [
       "expo-splash-screen",
       {
-        // TODO(2단계): 디자인 토큰(Palette) 생성 후 토큰 값으로 교체
-        backgroundColor: "#FFFFFF",
-        // 플러그인은 image를 생략해도 drawable/splashscreen_logo를 참조해서
-        // 파일이 없으면 Android 리소스 링크가 실패한다. 실제 로고가 나오기 전까지
-        // 투명 placeholder를 둔다.
-        // TODO: 디자인 확정 후 실제 스플래시 로고로 교체
-        image: "./assets/images/splash-icon.png",
-        imageWidth: 200,
+        // 시작 화면((auth)/start.tsx)과 같은 배경·로고·폭으로 맞춰 스플래시 → 시작 화면이
+        // 끊김 없이 이어지게 한다. 로그인 상태면 게이트가 홈으로 보내므로 그때만 전환이 보인다.
+        backgroundColor: Palette.gray[400],
+        image: "./assets/images/logo.png",
+        imageWidth: 294,
       },
     ],
   ],
+  // EAS 프로젝트 식별자. `eas init` 이 발급하며, 동적 config 라 자동 기입이 안 돼 수동으로 넣는다.
+  // 이 값이 있어야 eas build 가 이 프로젝트로 연결된다.
+  extra: {
+    eas: {
+      projectId: "190fe640-2dd1-4f41-ab76-9d05fd8a5317",
+    },
+  },
   experiments: {
     typedRoutes: true,
     reactCompiler: true,
