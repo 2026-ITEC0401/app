@@ -57,13 +57,15 @@
 
 ```bash
 npx eas-cli login                        # Expo 계정 로그인 (최초 1회)
-npx eas-cli env:create --environment production --name EXPO_PUBLIC_API_BASE_URL --value <API 주소> --visibility plaintext
-npx eas-cli env:create --environment production --name EXPO_PUBLIC_WS_BASE_URL --value <WS 주소> --visibility plaintext
+npx eas-cli env:set --scope project --environment production --name EXPO_PUBLIC_API_BASE_URL --value <API 주소> --visibility plaintext
+npx eas-cli env:set --scope project --environment production --name EXPO_PUBLIC_WS_BASE_URL --value <WS 주소> --visibility plaintext
 npx eas-cli build -p android --profile preview      # 내부 테스트용 APK
 npx eas-cli build -p android --profile production   # 스토어 제출용 APK
 ```
 
-- `EXPO_PUBLIC_*` 값은 `.env` 가 아니라 **EAS 환경변수**에서 읽습니다. 로컬 `.env` 는 커밋되지 않아 클라우드 빌드에 포함되지 않기 때문입니다. (`eas env:list` 로 확인)
+- `EXPO_PUBLIC_*` 값은 `.env` 가 아니라 **EAS 환경변수**에서 읽습니다. 로컬 `.env` 는 커밋되지 않아 클라우드 빌드에 포함되지 않기 때문입니다. (`eas env:list --environment production` 으로 확인)
+- 반드시 **`--scope project`** 로 등록합니다. 같은 Expo 계정(organization)에 다른 앱이 계정 범위(SHARED)로 올려 둔 같은 이름의 변수가 있을 수 있는데, 프로젝트 범위 변수가 이를 덮어씁니다. 계정 범위 변수는 다른 앱 것이므로 수정·삭제하지 않습니다.
+- 다른 환경(preview · development)으로 빌드하려면 그 환경에도 같은 변수를 프로젝트 범위로 추가해야 합니다.
 - 스토어 업로드마다 `android.versionCode` 를 1씩 올립니다 (같은 값 재업로드 불가). 릴리즈 흐름은 [convention.md §6](./convention.md#6-릴리즈-develop--main) 참고.
 
 ---
